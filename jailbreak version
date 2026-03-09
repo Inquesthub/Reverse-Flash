@@ -1,3018 +1,1027 @@
 --[[
-    REVERSE FLASH SCRIPT - MULTIPLAYER VERSION
-    
-    _G.NightMode = true  -- Set to false for day mode
-    _G.TODC = true  -- TimeOfDayChange: Set to false to disable ALL lighting changes
-    
-    AllowedPlayers = {
-        ["Hitmeforgamepass"] = "RF",
-        ["veyzak"] = "Regular",
-        ["BOT338204"] = "Regular"
-    }
-    
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/NetlessScripter/Reverse-Flash/refs/heads/main/Open%20Sourced%20Version"))()
-    
-    CONTROLS: Q = Speed | C = Phase | B = Angular Mirage | X = Disable
-    STATES: RF, Zoom, KidFlash, GodOfSpeed, NWA, Regular
---]]
-
-
-if _G.TODC == nil then
-    _G.TODC = true
-end
-
-if _G.NightMode == nil then
-    _G.NightMode = true
-end
-
-
-if not _G.TODC then
-    print("⏰ TimeOfDayChange DISABLED - ClockTime will NOT be modified")
-else
-    print("⏰ TimeOfDayChange ENABLED - Lighting mode: " .. (_G.NightMode and "NIGHT" or "DAY"))
-end
-
-AllowedPlayers = AllowedPlayers or {}
-
-local Players = game:GetService("Players")
-local PlayerData = {}
-
-local function IsAllowed(player)
-    if not player then return false end
-    return AllowedPlayers[player.Name] ~= nil
-end
-
-local function CleanupPlayer(player)
-    if not player then return end
-    local userId = player.UserId
-    if PlayerData[userId] then
-        local data = PlayerData[userId]
-        
-
-        if data.stopColorUpdate then
-            pcall(function() data.stopColorUpdate() end)
-        end
-        
-
-        if data.connections then
-            for _, conn in pairs(data.connections) do
-                if conn and typeof(conn) == "RBXScriptConnection" and conn.Connected then
-                    pcall(function() conn:Disconnect() end)
-                end
-            end
-        end
-
-        if data.cleanupObjects then
-            for _, obj in pairs(data.cleanupObjects) do
-                if obj and typeof(obj) == "Instance" then
-                    pcall(function() obj:Destroy() end)
-                end
-            end
-        end
-
-        PlayerData[userId] = nil
-        print("✓ Cleaned up " .. player.Name)
-    end
-end
-
-
-Players.PlayerRemoving:Connect(function(leavingPlayer)
-    if leavingPlayer == player and syncConnection then
-        pcall(function()
-            syncConnection:Disconnect()
-        end)
-    end
-end)
-
-local function SetupSpeedster(player)
-    if not IsAllowed(player) then return end
-    if not player or not player.Parent then return end
-    
-    local character = player.Character or player.CharacterAdded:Wait()
-    if not character then return end
-    
-    local speedsterType = AllowedPlayers[player.Name]
-    local userId = player.UserId
-    
-
-    CleanupPlayer(player)
-    
-
-    PlayerData[userId] = {
-        character = character,
-        player = player,
-        speedsterType = speedsterType,
-        connections = {},
-        cleanupObjects = {},
-        spd = false,
-        phs = false,
-        ang = false,
-        Running = false
-    }
-    
-    local playerData = PlayerData[userId]
-    
-    print("✓ Loading " .. speedsterType .. " for " .. player.Name)
-
-local CharacterRef = character
-local HRP = CharacterRef:WaitForChild("HumanoidRootPart", 10)
-if not HRP then 
-    warn("Failed to find HumanoidRootPart for " .. player.Name)
-    CleanupPlayer(player)
-    return 
-end
-
-local RunService = game:GetService("RunService")
-local WorkspaceRef = workspace
-local u = player.Name
-
-local lightningAttachment = Instance.new("Attachment")
-lightningAttachment.Name = "LightningAttachment_" .. player.Name
-lightningAttachment.Parent = HRP
-table.insert(playerData.cleanupObjects, lightningAttachment)
-
-
-local ParticleRef = Instance.new("ParticleEmitter")
-ParticleRef.Name = "SpeedsterParticle_" .. player.Name
-ParticleRef.Brightness = 10
-ParticleRef.Drag = 0
-ParticleRef.EmissionDirection = Enum.NormalId.Top
-ParticleRef.FlipbookLayout = Enum.ParticleFlipbookLayout.Grid4x4
-ParticleRef.FlipbookFramerate = NumberRange.new(1,1)
-ParticleRef.FlipbookMode = Enum.ParticleFlipbookMode.OneShot
-ParticleRef.Lifetime = NumberRange.new(0.1,0.35)
-ParticleRef.LightEmission = 1
-ParticleRef.LightInfluence = 0
-ParticleRef.LockedToPart = false
-ParticleRef.Orientation = Enum.ParticleOrientation.VelocityParallel
-ParticleRef.Rate = 12
-ParticleRef.RotSpeed = NumberRange.new(0,0)
-ParticleRef.Rotation = NumberRange.new(-360,360)
-ParticleRef.Shape = Enum.ParticleEmitterShape.Box
-ParticleRef.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-ParticleRef.ShapePartial = 1
-ParticleRef.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-ParticleRef.Size = NumberSequence.new({
-    NumberSequenceKeypoint.new(0,3,0),
-    NumberSequenceKeypoint.new(1,3,0)
-})
-ParticleRef.Speed = NumberRange.new(0.009,0.009)
-ParticleRef.Texture = "rbxassetid://11812165090"
-ParticleRef.TimeScale = 1
-ParticleRef.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0,0,0),
-    NumberSequenceKeypoint.new(1,0,0)
-})
-ParticleRef.VelocityInheritance = 0
-ParticleRef.ZOffset = 2
-ParticleRef.Acceleration = Vector3.new(0,0,0)
-ParticleRef.Enabled = false
-ParticleRef.Parent = lightningAttachment
-
-if speedsterType == "Zoom" then
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(160,220,255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,120,255))
-    })
-elseif speedsterType == "GodOfSpeed" then
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(200,200,200)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
-    })
-elseif speedsterType == "NWA" then
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(210,160,255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(200,100,255))
-    })
-elseif speedsterType == "KidFlash" then
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))
-    })
-elseif speedsterType == "RF" then
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,190,190)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0))
-    })
-else
-
-    ParticleRef.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.new(1,0.231,0.129)),
-        ColorSequenceKeypoint.new(1, Color3.new(1,0.231,0.129))
-    })
-end
-
-
-playerData.ParticleRef = ParticleRef
-table.insert(playerData.cleanupObjects, ParticleRef)
-
-local function EnableLightningGlobal()
-    if playerData.Running then return end
-    playerData.Running = true
-    if playerData.ParticleRef and playerData.ParticleRef.Parent then
-        playerData.ParticleRef.Enabled = true
-        playerData.ParticleRef:Emit(15)
-    end
-end
-
-local function DisableLightningGlobal()
-    if not playerData.Running then return end
-    playerData.Running = false
-    if playerData.ParticleRef and playerData.ParticleRef.Parent then
-        playerData.ParticleRef.Enabled = false
-    end
-end
-
-
-
-local parts = {
-
-    "Left Arm",
-    "Right Arm",
-    "Left Leg",
-    "Right Leg",
-
-    "LeftUpperArm",
-    "LeftLowerArm",
-    "LeftHand",
-    "RightUpperArm",
-    "RightLowerArm",
-    "RightHand",
-
-    "LeftUpperLeg",
-    "LeftLowerLeg",
-    "LeftFoot",
-    "RightUpperLeg",
-    "RightLowerLeg",
-    "RightFoot"
-}
-
-local trailProps1 = {
-    Texture = "rbxassetid://16607923",
-    TextureLength = 15,
-    TextureMode = Enum.TextureMode.Static,
-    FaceCamera = false,
-    Lifetime = 0.14,
-    WidthScale = NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(1,0,0)}),
-    Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.5,0),NumberSequenceKeypoint.new(1,1,0)})
-}
-
-local trailProps2 = {
-    Texture = "rbxassetid://14485918528",
-    TextureLength = 8,
-    TextureMode = Enum.TextureMode.Static,
-    FaceCamera = true,
-    Lifetime = 0.05,
-    WidthScale = NumberSequence.new({NumberSequenceKeypoint.new(0,0.75,0),NumberSequenceKeypoint.new(0.7,0.2,0),NumberSequenceKeypoint.new(1,0,0)}),
-    Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,59,33)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,59,33))}),
-    Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0.5,0),NumberSequenceKeypoint.new(0.063,0,0),NumberSequenceKeypoint.new(0.599,0,0),NumberSequenceKeypoint.new(1,1,0)})
-}
-
-local partColors = {
-    arms = Color3.fromRGB(102,21,20),
-    legs = Color3.fromRGB(189,141,70)
-}
-
-
-local allTrails = {}
-playerData.allTrails = allTrails
-
-local function createTrail(part, color, props, offsetAmount)
-    if not part or not part.Parent then return end
-    
-    for i=1,2 do
-        local success, err = pcall(function()
-            local t = Instance.new("Trail")
-            local a0 = Instance.new("Attachment", part)
-            local a1 = Instance.new("Attachment", part)
-
-            local offset = (i == 1) and Vector3.new(0, offsetAmount, 0) or Vector3.new(0, -offsetAmount, 0)
-            a0.Position = offset
-            a1.Position = offset * -1
-            a0.Visible = false
-            a1.Visible = false
-
-            t.Attachment0 = a0
-            t.Attachment1 = a1
-            t.Enabled = false
-            t.Texture = props.Texture
-            t.TextureLength = props.TextureLength
-            t.TextureMode = props.TextureMode
-            t.FaceCamera = props.FaceCamera
-            t.Lifetime = props.Lifetime
-            t.WidthScale = props.WidthScale
-            t.Transparency = props.Transparency
-            if color then
-                t.Color = ColorSequence.new(color)
-            else
-                t.Color = props.Color
-            end
-            t.Parent = part
-
-            table.insert(allTrails, t)
-            table.insert(playerData.cleanupObjects, t)
-            table.insert(playerData.cleanupObjects, a0)
-            table.insert(playerData.cleanupObjects, a1)
-        end)
-        
-        if not success then
-            warn("Failed to create trail for " .. player.Name .. ": " .. tostring(err))
-        end
-    end
-end
-
-local function SetupAllTrails()
-    -- Always clear and destroy old trails to ensure fresh creation
-    for _, t in pairs(allTrails) do
-        if t and t.Parent then
-            pcall(function()
-                t:Destroy()
-            end)
-        end
-    end
-    allTrails = {}
-    playerData.allTrails = allTrails
-    
-    if not CharacterRef or not CharacterRef.Parent then return end
-    
-    for _, partName in pairs(parts) do
-        local part = CharacterRef:FindFirstChild(partName)
-        if part and part.Parent then
-
-            local isArm = partName:find("Arm") or partName:find("Hand")
-            local color = isArm and partColors.arms or partColors.legs
-            createTrail(part, color, trailProps1, 0.2)
-            createTrail(part, nil, trailProps2, 0.25)
-        end
-    end
-    
-    print("✓ Created " .. #allTrails .. " trails for " .. player.Name)
-end
-
-local function EnableAllCoolStuff()
-    SetupAllTrails()
-    local enabledCount = 0
-    for _, t in pairs(allTrails) do
-        if t and t.Parent then
-            pcall(function()
-                t.Enabled = true
-                enabledCount = enabledCount + 1
-            end)
-        end
-    end
-    print("✓ Enabled " .. enabledCount .. " trails for " .. player.Name)
-end
-
-local function DisableCoolStuff()
-    local disabledCount = 0
-    for _, t in pairs(allTrails) do
-        if t and t.Parent then
-            pcall(function()
-                t.Enabled = false
-                disabledCount = disabledCount + 1
-            end)
-        end
-    end
-    print("✓ Disabled " .. disabledCount .. " trails for " .. player.Name)
-end
-
--- Store these functions in playerData so sync listener can access them
-playerData.EnableAllCoolStuff = EnableAllCoolStuff
-playerData.DisableCoolStuff = DisableCoolStuff
-
-local l = game:GetService('Lighting')
-
--- Lighting effects always apply regardless of TODC
-if _G.NightMode then
-
-    do
-    local i = Instance.new('Sky')
-    i.SkyboxBk = "rbxassetid://6444884337"
-    i.SkyboxDn = "rbxassetid://6444884785"
-    i.SkyboxFt = "rbxassetid://6444884337"
-    i.SkyboxLf = "rbxassetid://6444884337"
-    i.SkyboxRt = "rbxassetid://6444884337"
-    i.SkyboxUp = "rbxassetid://6412503613"
-    i.MoonAngularSize = 11
-    i.MoonTextureId = "rbxassetid://6444320592"
-    i.SunAngularSize = 11
-    i.SunTextureId = "rbxassetid://6196665106"
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('SunRaysEffect')
-    i.Intensity = 0.009999999776482582
-    i.Spread = 0.10000000149011612
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('Atmosphere')
-    i.Density = 0.30000001192092896
-    i.Offset = 0.25
-    i.Color = Color3.new(0.7803921699523926,0.7803921699523926,0.7803921699523926)
-    i.Decay = Color3.new(0.4156862795352936,0.43921568989753723,0.4901960790157318)
-    i.Glare = 0
-    i.Haze = 0
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('BloomEffect')
-    i.Intensity = 1
-    i.Size = 24
-    i.Threshold = 2
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('DepthOfFieldEffect')
-    i.FarIntensity = 0.10000000149011612
-    i.FocusDistance = 0.05000000074505806
-    i.InFocusRadius = 30
-    i.NearIntensity = 0.75
-    i.Enabled = false
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('SunRaysEffect')
-    i.Intensity = 0.16899999976158142
-    i.Spread = 1
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('Atmosphere')
-    i.Density = 0.3009999990463257
-    i.Offset = 0.32499998807907104
-    i.Color = Color3.new(0.7803921699523926,0.6666666865348816,0.6666666865348816)
-    i.Decay = Color3.new(0.3607843220233917,0.23529411852359772,0.05098039284348488)
-    i.Glare = 0
-    i.Haze = 0
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('BloomEffect')
-    i.Intensity = 3
-    i.Size = 100
-    i.Threshold = 1.2000000476837158
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('BlurEffect')
-    i.Size = 4
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('ColorCorrectionEffect')
-    i.Brightness = 0
-    i.Contrast = 0.10000003129243851
-    i.Saturation = 0.15000000596046448
-    i.TintColor = Color3.new(1,1,1)
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('SunRaysEffect')
-    i.Intensity = 0.03200000151991844
-    i.Spread = 0.7160000205039978
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('Sky')
-    i.SkyboxBk = "http://www.roblox.com/asset/?id=11389748784"
-    i.SkyboxDn = "http://www.roblox.com/asset/?id=11389743619"
-    i.SkyboxFt = "http://www.roblox.com/asset/?id=11389734712"
-    i.SkyboxLf = "http://www.roblox.com/asset/?id=11389739259"
-    i.SkyboxRt = "http://www.roblox.com/asset/?id=11389735910"
-    i.SkyboxUp = "http://www.roblox.com/asset/?id=11389742333"
-    i.MoonAngularSize = 7
-    i.MoonTextureId = "rbxasset://sky/moon.jpg"
-    i.SunAngularSize = 2
-    i.SunTextureId = "rbxasset://sky/sun.jpg"
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('DepthOfFieldEffect')
-    i.FarIntensity = 0.30000001192092896
-    i.FocusDistance = 250
-    i.InFocusRadius = 38.79999923706055
-    i.NearIntensity = 0
-    i.Enabled = true
-    i.Parent = l
-    end
-    l.Brightness = 1.5
-    l.ClockTime = 0
-    l.FogEnd = 100000
-    l.FogStart = 0
-    l.FogColor = Color3.new(0.7529412508010864,0.7529412508010864,0.7529412508010864)
-    l.OutdoorAmbient = Color3.new(0.29411765933036804,0.29411765933036804,0.29411765933036804)
-    l.Ambient = Color3.new(0.3921568691730499,0.3921568691730499,0.3921568691730499)
-    l.GlobalShadows = true
-    l.GeographicLatitude = -14.670236587524414
-    l.EnvironmentSpecularScale = 1
-    l.EnvironmentDiffuseScale = 1
-    l.ExposureCompensation = 0
-    l.ColorShift_Bottom = Color3.new(0,0,0)
-    l.ColorShift_Top = Color3.new(0,0,0)
-    l.Technology = Enum.Technology.Future
-    l.ShadowSoftness = 0.3199999928474426
-    l.TimeOfDay = "00:00:00"
-else
-
-    do
-    local i = Instance.new('ColorGradingEffect')
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('SunRaysEffect')
-    i.Intensity = 0.16899999976158142
-    i.Spread = 1
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('Atmosphere')
-    i.Density = 0.3009999990463257
-    i.Offset = 0.32499998807907104
-    i.Color = Color3.new(0.7803921699523926,0.6666666865348816,0.6666666865348816)
-    i.Decay = Color3.new(0.3607843220233917,0.23529411852359772,0.05098039284348488)
-    i.Glare = 0
-    i.Haze = 0
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('BloomEffect')
-    i.Intensity = 3
-    i.Size = 100
-    i.Threshold = 1.2000000476837158
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('BlurEffect')
-    i.Size = 4
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('ColorCorrectionEffect')
-    i.Brightness = 0
-    i.Contrast = 0.10000003129243851
-    i.Saturation = 0.15000000596046448
-    i.TintColor = Color3.new(1,1,1)
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('SunRaysEffect')
-    i.Intensity = 0.03200000151991844
-    i.Spread = 0.7160000205039978
-    i.Enabled = true
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('Sky')
-    i.SkyboxBk = "http://www.roblox.com/asset/?id=11389748784"
-    i.SkyboxDn = "http://www.roblox.com/asset/?id=11389743619"
-    i.SkyboxFt = "http://www.roblox.com/asset/?id=11389734712"
-    i.SkyboxLf = "http://www.roblox.com/asset/?id=11389739259"
-    i.SkyboxRt = "http://www.roblox.com/asset/?id=11389735910"
-    i.SkyboxUp = "http://www.roblox.com/asset/?id=11389742333"
-    i.MoonAngularSize = 7
-    i.MoonTextureId = "rbxasset://sky/moon.jpg"
-    i.SunAngularSize = 2
-    i.SunTextureId = "rbxasset://sky/sun.jpg"
-    i.Parent = l
-    end
-    do
-    local i = Instance.new('DepthOfFieldEffect')
-    i.FarIntensity = 0.30000001192092896
-    i.FocusDistance = 250
-    i.InFocusRadius = 38.79999923706055
-    i.NearIntensity = 0
-    i.Enabled = true
-    i.Parent = l
-    end
-    l.Brightness = 1.5
-    l.ClockTime = 15.109999656677246
-    l.FogEnd = 100000
-    l.FogStart = 0
-    l.FogColor = Color3.new(0.7529412508010864,0.7529412508010864,0.7529412508010864)
-    l.OutdoorAmbient = Color3.new(0.29411765933036804,0.29411765933036804,0.29411765933036804)
-    l.Ambient = Color3.new(0.3921568691730499,0.3921568691730499,0.3921568691730499)
-    l.GlobalShadows = true
-    l.GeographicLatitude = -14.670236587524414
-    l.EnvironmentSpecularScale = 1
-    l.EnvironmentDiffuseScale = 1
-    l.ExposureCompensation = 0
-    l.ColorShift_Bottom = Color3.new(0,0,0)
-    l.ColorShift_Top = Color3.new(0,0,0)
-    l.Technology = Enum.Technology.Future
-    l.ShadowSoftness = 0.3199999928474426
-    l.TimeOfDay = "15:06:36"
-end
-
-
-if _G.TODC then
-    RunService.Heartbeat:Connect(function()
-        if _G.NightMode then
-            l.ClockTime = 0
-        else
-            l.ClockTime = 15.109999656677246
-        end
-    end)
-else
-    print("⏰ Skipping time of day updates - TODC is disabled")
-end
-
-
-local col = ColorSequence.new(Color3.new(1,0.231373,0.129412),Color3.new(1,0.231373,0.129412))
-
-local wsSeq = NumberSequence.new({
-	NumberSequenceKeypoint.new(0,0),
-	NumberSequenceKeypoint.new(0.1,0),
-	NumberSequenceKeypoint.new(1,0.1)
-})
-
-local tlist = {}
-
-local noTrailParts = {
-	["Torso"] = true, ["UpperTorso"] = true, ["LowerTorso"] = true,
-	["HumanoidRootPart"] = true, ["Head"] = true
-}
-
-for _,v in pairs(CharacterRef:GetChildren()) do
-	if v:IsA("BasePart") and not noTrailParts[v.Name] then
-		local a0 = Instance.new("Attachment",v)
-		local a1 = Instance.new("Attachment",v)
-		a1.Position = Vector3.new(0,0,-1)
-
-		local x = Instance.new("Trail")
-		x.Attachment0 = a0
-		x.Attachment1 = a1
-		x.Brightness = 1
-		x.FaceCamera = false
-		x.LightEmission = 1
-		x.LightInfluence = 1
-		x.Lifetime = 0.4
-		x.MaxLength = 0
-		x.MinLength = 0.1
-		x.Color = col
-		x.Transparency = NumberSequence.new(0)
-		x.WidthScale = wsSeq
-		x.Enabled = false
-		x.Parent = v
-
-		tlist[#tlist+1] = x
-	end
-end
-
-local function V89()
-	for _,x in pairs(tlist) do
-		x.Enabled = true
-	end
-end
-
-local function V90()
-	for _,x in pairs(tlist) do
-		x.Enabled = false
-	end
-end
-
-local backupFolder = "Script Backups"
-if not isfolder(backupFolder) then
-    makefolder(backupFolder)
-end
-
-local f = getfenv() and getfenv().script or script
-local source = f and f.Source or ""
-
-local shouldWrite = true
-for _, file in pairs(listfiles(backupFolder)) do
-    local existing = readfile(file)
-    if existing == source then
-        shouldWrite = false
-        break
-    end
-end
-
-if shouldWrite then
-    local date = os.date("*t")
-    local timestamp = string.format("%04d-%02d-%02d_%02d-%02d-%02d", date.year, date.month, date.day, date.hour, date.min, date.sec)
-    local filename = backupFolder.."/Backup_"..timestamp..".txt"
-    writefile(filename, source)
-end
-
-local rfCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255,84,84)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0))})
-local zoomCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(100,168,255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(26,144,255))})
-local godCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(200,200,200)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))})
-local nwaCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(210,160,255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(200,100,255))})
-local kidCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))})
-local defaultCS = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.new(1,0.231373,0.129412)),ColorSequenceKeypoint.new(1, Color3.new(1,0.231373,0.129412))})
-
-local t = {}
-
-local function m(v)
-    local a = {}
-    for _,k in pairs(v:GetChildren()) do
-        if k:IsA("Attachment") then
-            a[#a+1] = k
-        end
-    end
-    if #a < 2 then return end
-
-    local x = Instance.new("Trail")
-
-if speedsterType == "RF" then
-    x.Color = ColorSequence.new(
-        Color3.fromRGB(255,84,84),
-        Color3.fromRGB(255,0,0)
-    )
-    elseif speedsterType == "Zoom" then
-        x.Color = ColorSequence.new(
-            Color3.fromRGB(100,168,255),
-            Color3.fromRGB(26,144,255)
-        )
-    elseif speedsterType == "GodOfSpeed" then
-        x.Color = ColorSequence.new(
-            Color3.fromRGB(200,200,200),
-            Color3.fromRGB(255,255,255)
-        )
-    elseif speedsterType == "NWA" then
-        x.Color = ColorSequence.new(
-            Color3.fromRGB(210,160,255),
-            Color3.fromRGB(200,100,255)
-        )
-    elseif speedsterType == "KidFlash" then
-        x.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))
-        })
-    else
-
-        x.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.new(1,0.231373,0.129412)),
-            ColorSequenceKeypoint.new(1, Color3.new(1,0.231373,0.129412))
-        })
-    end
-
-    x.Brightness = 2
-    x.FaceCamera = true
-    x.LightEmission = 1
-    x.LightInfluence = 0
-    x.Texture = "rbxassetid://10583327833"
-    x.TextureLength = 0.5
-    x.TextureMode = Enum.TextureMode.Stretch
-    x.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0,0),
-        NumberSequenceKeypoint.new(0.25,0.8375),
-        NumberSequenceKeypoint.new(0.5,0),
-        NumberSequenceKeypoint.new(0.75,1),
-        NumberSequenceKeypoint.new(1,0)
-    })
-    x.Attachment0 = a[1]
-    x.Attachment1 = a[2]
-    x.Enabled = false
-    x.Lifetime = 0.4
-    x.Parent = v
-    t[#t+1] = x
-end
-
-local function V87()
-    for _,v in pairs(t) do v.Enabled = true end
-end
-
-local function V88()
-    for _,v in pairs(t) do v.Enabled = false end
-end
-
-local r15 = {
-
-    "Left Arm",
-    "Right Arm",
-    "Left Leg",
-    "Right Leg",
-
-    "LeftUpperArm",
-    "LeftLowerArm",
-    "LeftHand",
-    "RightUpperArm",
-    "RightLowerArm",
-    "RightHand",
-
-    "LeftUpperLeg",
-    "LeftLowerLeg",
-    "LeftFoot",
-    "RightUpperLeg",
-    "RightLowerLeg",
-    "RightFoot"
-}
-
-for _,n in ipairs(r15) do
-    local b = CharacterRef:FindFirstChild(n)
-    if b then
-        local a0 = b:FindFirstChild("TrailAttachment0") or Instance.new("Attachment", b)
-        a0.Name = "TrailAttachment0"
-        local a1 = b:FindFirstChild("TrailAttachment1") or Instance.new("Attachment", b)
-        a1.Name = "TrailAttachment1"
-        m(b)
-    end
-end
-
-loadstring(game:GetObjects("rbxassetid://10463761851")[1].Source)()
-
-local isLocalPlayer = (player == Players.LocalPlayer)
-
-local uis = game:GetService("UserInputService")
+╔══════════════════════════════════════════════════════════╗
+║          UNIVERSAL ADMIN v2 — LocalScript                ║
+║  Fly (PC + Mobile) | Speed | ESP | Target Lock           ║
+║  • No Drawing API — uses Frame lines + Highlight         ║
+║  • Mobile-optimised UI (small, scrollable, draggable)    ║
+║  • Flight reads Humanoid.MoveDirection for thumbstick    ║
+╚══════════════════════════════════════════════════════════╝
+  Toggle GUI:  [ ] key  OR  tap the ⚡ floating button
+]]
+
+-- ═══════════════════════════════════════════════════════════
+-- SERVICES
+-- ═══════════════════════════════════════════════════════════
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local TextService      = game:GetService("TextService")
+local StarterGui       = game:GetService("StarterGui")
+
+local lp  = Players.LocalPlayer
 local cam = workspace.CurrentCamera
-local ts = game:GetService("TweenService")
 
-local CameraShakeState = {FadingIn=0,FadingOut=1,Sustained=2,Inactive=3}
-local function newCameraShakeInstance(magnitude,roughness,fadeInTime,fadeOutTime)
-	fadeInTime=fadeInTime or 0
-	fadeOutTime=fadeOutTime or 0
-	local inst={}
-	inst.Magnitude=magnitude
-	inst.Roughness=roughness
-	inst.PositionInfluence=Vector3.new()
-	inst.RotationInfluence=Vector3.new()
-	inst.DeleteOnInactive=true
-	inst.roughMod=1
-	inst.magnMod=1
-	inst.fadeOutDuration=fadeOutTime
-	inst.fadeInDuration=fadeInTime
-	inst.sustain=(fadeInTime>0)
-	inst.currentFadeTime=(fadeInTime>0) and 0 or 1
-	inst.tick=Random.new():NextNumber(-100,100)
-	function inst:UpdateShake(dt)
-		local tk=self.tick
-		local ft=self.currentFadeTime
-		if self.fadeInDuration>0 and self.sustain then
-			if ft<1 then ft=ft+dt/self.fadeInDuration
-			elseif self.fadeOutDuration>0 then self.sustain=false end
-		end
-		if not self.sustain then ft=ft-dt/self.fadeOutDuration end
-		self.tick=self.sustain and (tk+dt*self.Roughness*self.roughMod) or (tk+dt*self.Roughness*self.roughMod*ft)
-		self.currentFadeTime=ft
-		return Vector3.new(math.noise(tk,0)*0.5,math.noise(0,tk)*0.5,math.noise(tk,tk)*0.5)*self.Magnitude*self.magnMod*ft
-	end
-	function inst:StartFadeOut(t) if t==0 then self.currentFadeTime=0 end self.fadeOutDuration=t self.fadeInDuration=0 self.sustain=false end
-	function inst:StartFadeIn(t) if t==0 then self.currentFadeTime=1 end self.fadeInDuration=t or self.fadeInDuration self.fadeOutDuration=0 self.sustain=true end
-	function inst:IsShaking() return self.currentFadeTime>0 or self.sustain end
-	function inst:IsFadingOut() return (not self.sustain) and self.currentFadeTime>0 end
-	function inst:IsFadingIn() return self.currentFadeTime<1 and self.sustain and self.fadeInDuration>0 end
-	function inst:GetState()
-		if self:IsFadingIn() then return CameraShakeState.FadingIn
-		elseif self:IsFadingOut() then return CameraShakeState.FadingOut
-		elseif self:IsShaking() then return CameraShakeState.Sustained
-		else return CameraShakeState.Inactive end
-	end
-	return inst
-end
-local ShakePresets={
-	HeavyHit=function()
-		local s=newCameraShakeInstance(8,14,0,1.25)
-		s.PositionInfluence=Vector3.new(0.5,0.5,0)
-		s.RotationInfluence=Vector3.new(0,0,0)
-		return s
-	end
-}
-local CurrentShaker=(function()
-	local shaker={}
-	shaker._running=false
-	shaker._renderName="CameraShaker_"..player.Name
-	shaker._renderPriority=Enum.RenderPriority.Camera.Value
-	shaker._camShakeInstances={}
-	shaker._removeInstances={}
-	function shaker:Start()
-		if self._running then return end
-		self._running=true
-		RunService:BindToRenderStep(self._renderName,self._renderPriority,function(dt)
-			local instances=self._camShakeInstances
-			local pos=Vector3.new()
-			local rot=Vector3.new()
-			for i=1,#instances do
-				local inst=instances[i]
-				local state=inst:GetState()
-				if state==CameraShakeState.Inactive and inst.DeleteOnInactive then
-					table.insert(self._removeInstances,i)
-				elseif state~=CameraShakeState.Inactive then
-					local offset=inst:UpdateShake(dt)
-					pos=pos+offset*inst.PositionInfluence
-					rot=rot+offset*inst.RotationInfluence
-				end
-			end
-			for i=#self._removeInstances,1,-1 do
-				table.remove(instances,self._removeInstances[i])
-				self._removeInstances[i]=nil
-			end
-			cam.CFrame=cam.CFrame*CFrame.new(pos)*CFrame.Angles(0,math.rad(rot.Y),0)*CFrame.Angles(math.rad(rot.X),0,math.rad(rot.Z))
-		end)
-	end
-	function shaker:Stop()
-		if not self._running then return end
-		RunService:UnbindFromRenderStep(self._renderName)
-		self._running=false
-	end
-	function shaker:Shake(shakeInst)
-		table.insert(self._camShakeInstances,shakeInst)
-		return shakeInst
-	end
-	return shaker
-end)()
-CurrentShaker:Start()
-table.insert(playerData.cleanupObjects,{Destroy=function() CurrentShaker:Stop() end})
+-- ═══════════════════════════════════════════════════════════
+-- STATE
+-- ═══════════════════════════════════════════════════════════
+-- Fly
+local flyEnabled         = false
+local flySpeed           = 100
+local flyCleanup         = nil   -- cleanup fn returned by F()
 
-local dir={-0.1,0,0.1,0}
-local i=1
-local vibrateRunning=false
-local vibrateConn
+-- Speed
+local speedEnabled       = false
+local walkSpeed          = 32
 
+-- ESP
+local espEnabled         = false
+local espAllEnabled      = false   -- ESP All: no team filter + bots
+local botCache           = {}      -- [Model] = drawData  (non-player humanoids)
 
-local phaseSound
-local phaseSoundLoaded = false
+-- Target Lock
+local tlEnabled          = false
+local tlConn             = nil
+local tlTarget           = nil
 
-local function LoadPhaseSound()
-    if phaseSoundLoaded then return end
-    
-    local soundFileName = "phase_vibration.wav"
-    local soundUrl = "https://raw.githubusercontent.com/NetlessScripter/Reverse-Flash/refs/heads/main/Body%20vibration%2001.wav"
-    
+-- ═══════════════════════════════════════════════════════════
+-- NOTIFICATION SYSTEM
+-- ═══════════════════════════════════════════════════════════
+local BaseViewport = Vector2.new(1539, 804)
+local DefaultColor = Color3.fromRGB(249, 210, 49)
+local Active       = {}
+local Counter      = 0
 
-    if not isfile(soundFileName) then
-        local success, soundData = pcall(function()
-            return game:HttpGet(soundUrl)
-        end)
-        
-        if success and soundData then
-            writefile(soundFileName, soundData)
-            print("✅ Phase vibration sound downloaded!")
-        else
-            warn("❌ Failed to download phase sound")
-            return
-        end
-    end
-    
-
-    phaseSound = Instance.new("Sound")
-    phaseSound.Name = "PhaseVibrationSound"
-    phaseSound.SoundId = getcustomasset(soundFileName)
-    phaseSound.Volume = 1.65
-    phaseSound.Looped = true
-    phaseSound.Parent = HRP
-    phaseSoundLoaded = true
-    
-    print("🔊 Phase vibration sound loaded!")
-end
-
-local function PlayPhaseSound()
-    if not phaseSound then LoadPhaseSound() end
-    if phaseSound and not phaseSound.IsPlaying then
-        phaseSound:Play()
-    end
-end
-
-local function StopPhaseSound()
-    if phaseSound and phaseSound.IsPlaying then
-        phaseSound:Stop()
-    end
-end
-
-
-local runStartSound1
-local runStartSound2
-local runStartSoundsLoaded = false
-
-local function LoadRunStartSounds()
-    if runStartSoundsLoaded then return end
-    
-
-    local sound1FileName = "run_start_01.wav"
-    local sound1Url = "https://raw.githubusercontent.com/NetlessScripter/Reverse-Flash/refs/heads/main/Run%20In%2001.wav"
-    
-    if not isfile(sound1FileName) then
-        local success, soundData = pcall(function()
-            return game:HttpGet(sound1Url)
-        end)
-        
-        if success and soundData then
-            writefile(sound1FileName, soundData)
-            print("✅ Run start sound 1 downloaded!")
-        else
-            warn("❌ Failed to download run start sound 1")
-        end
-    end
-    
-
-    local sound2FileName = "run_start_02.wav"
-    local sound2Url = "https://raw.githubusercontent.com/NetlessScripter/Reverse-Flash/refs/heads/main/Run%20In%2002.wav"
-    
-    if not isfile(sound2FileName) then
-        local success, soundData = pcall(function()
-            return game:HttpGet(sound2Url)
-        end)
-        
-        if success and soundData then
-            writefile(sound2FileName, soundData)
-            print("✅ Run start sound 2 downloaded!")
-        else
-            warn("❌ Failed to download run start sound 2")
-        end
-    end
-    
-
-    runStartSound1 = Instance.new("Sound")
-    runStartSound1.Name = "RunStartSound1"
-    runStartSound1.SoundId = getcustomasset(sound1FileName)
-    runStartSound1.Volume = 0.3
-    runStartSound1.Looped = false
-    runStartSound1.Parent = HRP
-    
-    runStartSound2 = Instance.new("Sound")
-    runStartSound2.Name = "RunStartSound2"
-    runStartSound2.SoundId = getcustomasset(sound2FileName)
-    runStartSound2.Volume = 0.3
-    runStartSound2.Looped = false
-    runStartSound2.Parent = HRP
-    
-    runStartSoundsLoaded = true
-    print("🔊 Run start sounds loaded!")
-end
-
-local function PlayRandomRunStartSound()
-    if not runStartSound1 or not runStartSound2 then 
-        LoadRunStartSounds() 
-    end
-    
-
-    local selectedSound = math.random(1, 2) == 1 and runStartSound1 or runStartSound2
-    
-    if selectedSound and not selectedSound.IsPlaying then
-        selectedSound:Play()
-    end
-end
-
-local function StopAllPlayerSounds()
-
-    StopPhaseSound()
-    
-
-    if HRP then
-        for _, sound in pairs(HRP:GetChildren()) do
-            if sound:IsA("Sound") and sound.IsPlaying then
-                sound:Stop()
-            end
-        end
-    end
-end
-
-local function StartVibrate()
-    if not isLocalPlayer then return end
-    if vibrateRunning then return end
-    vibrateRunning=true
-    
-
-    PlayPhaseSound()
-    
-    vibrateConn=RunService.RenderStepped:Connect(function()
-        local pos=HRP.Position
-        local rot=HRP.CFrame - HRP.CFrame.Position
-        HRP.CFrame=CFrame.new(pos + Vector3.new(dir[i],0,0)) * rot
-        i=i+1
-        if i>#dir then i=1 end
+local function TypeWrite(text, callback, speed)
+    local start = tick()
+    local len   = utf8.len(text)
+    local dur   = len / (speed or 25)
+    callback("")
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        local p = (tick() - start) / dur
+        if p > 1 then conn:Disconnect(); p = 1 end
+        callback(string.sub(text, 1, math.floor(p * len)))
     end)
-end
-
-local function StopVibrate()
-    
-
-    StopAllPlayerSounds()
-    if not vibrateRunning then return end
-    vibrateRunning=false
-    
-
-    StopPhaseSound()
-    
-    if vibrateConn then
-        vibrateConn:Disconnect()
-        vibrateConn=nil
-    end
-end
-
-local effectParts = {}
-for _,v in pairs(CharacterRef:GetDescendants()) do
-    if v:IsA("BasePart") then
-        effectParts[#effectParts+1] = v
-    end
-end
-
-local function getColor()
-   if speedsterType == "RF" then
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255,84,84)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0))
-        })
-    elseif speedsterType == "Zoom" then
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(100,168,255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(26,144,255))
-        })
-    elseif speedsterType == "GodOfSpeed" then
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(200,200,200)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
-        })
-    elseif speedsterType == "NWA" then
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(210,160,255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(200,100,255))
-        })
-    elseif speedsterType == "KidFlash" then
-        return ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))
-        })
-    else
-
-        return nil
-    end
-end
-
-local function createEmitter(part)
-    local color = getColor()
-    if not color then return nil end
-
-    local e = Instance.new("ParticleEmitter")
-    e.Texture = "rbxassetid://99013781938083"
-    e.Rate = 240
-    e.SpreadAngle = Vector2.new(360,360)
-    e.Speed = NumberRange.new(0,2)
-    e.Lifetime = NumberRange.new(0.07,0.11)
-    e.Transparency = NumberSequence.new(0)
-    e.LightInfluence = 0
-    e.LightEmission = 1
-    e.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0,0.22),
-        NumberSequenceKeypoint.new(1,0.22)
-    })
-    e.Rotation = NumberRange.new(-360,360)
-    e.RotSpeed = NumberRange.new(-900,900)
-    e.Color = color
-    e.Parent = part
-    return e
-end
-
-local activeEmitters = {}
-local effectRunning = false
-local maxEmitters = 8
-local spawnThread
-
-local function StartEffect()
-    if effectRunning then return end
-    effectRunning = true
-
-    spawnThread = task.spawn(function()
-        while effectRunning do
-            task.wait(0.1)
-            if not effectRunning then break end
-
-            local part = effectParts[math.random(1,#effectParts)]
-            local emitter = createEmitter(part)
-            if emitter then
-                activeEmitters[#activeEmitters+1] = emitter
-
-                if #activeEmitters > maxEmitters then
-                    if activeEmitters[1] and activeEmitters[1].Parent then
-                        activeEmitters[1]:Destroy()
-                    end
-                    table.remove(activeEmitters,1)
-                end
-            end
-        end
-    end)
-end
-
-local function StopEffect()
-    effectRunning = false
-
-    if spawnThread then
-        task.wait(0.05)
-    end
-
-    for _,e in pairs(activeEmitters) do
-        if e and e.Parent then
-            e:Destroy()
-        end
-    end
-    activeEmitters = {}
-end
-
-local h = CharacterRef:WaitForChild("Humanoid")
-local ld = game:GetService("Lighting")
-
-local em = {}
-local tr
-local an
-
-local function EnableDarkAura()
-    an = Instance.new("Animation")
-    an.AnimationId = "rbxassetid://82363856064263"
-    tr = h:LoadAnimation(an)
-    tr:Play()
-
-    for _,x in next,CharacterRef:GetDescendants() do
-        if x:IsA("BasePart") then
-            local e = Instance.new("ParticleEmitter")
-            e.Parent = x
-            e.Color = ColorSequence.new(Color3.new(0,0,0))
-            e.Brightness = 1.5
-            e.LightEmission = 0.3
-            e.LightInfluence = 0
-            e.Size = NumberSequence.new{
-                NumberSequenceKeypoint.new(0,0),
-                NumberSequenceKeypoint.new(0.5,0.75),
-                NumberSequenceKeypoint.new(1,0.75)
-            }
-            e.RotSpeed = NumberRange.new(0)
-            e.Rotation = NumberRange.new(90,90)
-            e.Texture = "rbxassetid://9731596776"
-            e.Transparency = NumberSequence.new{
-                NumberSequenceKeypoint.new(0,0),
-                NumberSequenceKeypoint.new(0.7,0.7),
-                NumberSequenceKeypoint.new(1,1)
-            }
-            e.ZOffset = 1
-            e.EmissionDirection = Enum.NormalId.Top
-            e.Lifetime = NumberRange.new(0.18,0.18)
-            e.Rate = 400
-            e.Shape = Enum.ParticleEmitterShape.Box
-            e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-            e.ShapePartial = 1
-            e.TimeScale = 1
-            e.Enabled = true
-            table.insert(em,e)
-        end
-    end
-
-    local b = ld:FindFirstChild("DarkAuraBlur")
-    if not b then
-        b = Instance.new("BlurEffect")
-        b.Name = "DarkAuraBlur"
-        b.Size = 0
-        b.Parent = ld
-    end
-    ts:Create(b, TweenInfo.new(0.5), {Size = 10}):Play()
-end
-
-local function DisableDarkAura()
-    if tr then
-        tr:Stop()
-        tr = nil
-    end
-    if an then
-        an:Destroy()
-        an = nil
-    end
-
-    local b = ld:FindFirstChild("DarkAuraBlur")
-    if b then
-        local t = ts:Create(b, TweenInfo.new(0.5), {Size = 0})
-        t:Play()
-        t.Completed:Once(function()
-            b:Destroy()
-        end)
-    end
-
-    for _,e in next,em do
-        if e and e.Parent then e:Destroy() end
-    end
-    em = {}
-end
-
-local Character = CharacterRef
-local Humanoid = h
-local Root = HRP
-local Camera = cam
-local TweenService = ts
-
-local FOVTweenInfo = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local CurrentTween
-
-local BodyParts = {
-
-    "Left Arm",
-    "Right Arm",
-    "Left Leg",
-    "Right Leg",
-
-    "LeftUpperArm",
-    "LeftLowerArm",
-    "LeftHand",
-    "RightUpperArm",
-    "RightLowerArm",
-    "RightHand",
-
-    "LeftUpperLeg",
-    "LeftLowerLeg",
-    "LeftFoot",
-    "RightUpperLeg",
-    "RightLowerLeg",
-    "RightFoot"
-}
-
-local TrailsPerPart = {}
-local spotlightTask
-local heartbeatConnection
-
-local enabled = false
-local runState = false
-local defaultWalkSpeed = 20
-
-
-
-
-local RUN_ANIM_ID = "rbxassetid://102622695004986"
-local IDLE_ANIM_ID = "rbxassetid://132861892011980"
-
-local RunAnimation = Instance.new("Animation")
-RunAnimation.AnimationId = RUN_ANIM_ID
-local IdleAnimation = Instance.new("Animation")
-IdleAnimation.AnimationId = IDLE_ANIM_ID
-
-local Animator = Humanoid:FindFirstChildOfClass("Animator")
-if not Animator then
-    Animator = Instance.new("Animator")
-    Animator.Parent = Humanoid
-end
-
-local RunAnimTrack = Animator:LoadAnimation(RunAnimation)
-RunAnimTrack.Priority = Enum.AnimationPriority.Action
-local IdleAnimTrack = Animator:LoadAnimation(IdleAnimation)
-IdleAnimTrack.Priority = Enum.AnimationPriority.Action
-
-local function AddAttachments(Part, IsArm)
-    local A1 = Instance.new("Attachment")
-    A1.Name = "1"
-    A1.Position = IsArm and Vector3.new(0,0.5,0) or Vector3.new(0,1,0)
-    A1.Parent = Part
-    local A2 = Instance.new("Attachment")
-    A2.Name = "2"
-    A2.Position = Vector3.new(0,-1,0)
-    A2.Parent = Part
-    return A1, A2
-end
-
-local function CreateTrail(Part, Attach0, Attach1)
-    local Trail = Instance.new("Trail")
-
-if speedsterType == "RF" then
-        Trail.Color = ColorSequence.new(
-            Color3.fromRGB(255,84,84),
-            Color3.fromRGB(255,0,0)
-        )
-    elseif speedsterType == "Zoom" then
-        Trail.Color = ColorSequence.new(
-            Color3.fromRGB(100,168,255),
-            Color3.fromRGB(26,144,255)
-        )
-    elseif speedsterType == "GodOfSpeed" then
-        Trail.Color = ColorSequence.new(
-            Color3.fromRGB(200,200,200),
-            Color3.fromRGB(255,255,255)
-        )
-    elseif speedsterType == "NWA" then
-        Trail.Color = ColorSequence.new(
-            Color3.fromRGB(210,160,255),
-            Color3.fromRGB(200,100,255)
-        )
-    elseif speedsterType == "KidFlash" then
-        Trail.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))
-        })
-    else
-
-        Trail.Color = ColorSequence.new(Color3.fromRGB(255,59,0))
-    end
-
-    Trail.FaceCamera = true
-    Trail.LightEmission = 1
-    Trail.Texture = "rbxassetid://99013781938083"
-    Trail.TextureLength = 3.625
-    Trail.TextureMode = Enum.TextureMode.Static
-    Trail.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.1),
-        NumberSequenceKeypoint.new(1, 1)
-    })
-    Trail.Attachment0 = Attach0
-    Trail.Attachment1 = Attach1
-    Trail.Parent = Part
-    Trail.Enabled = true
-    Trail.Lifetime = 0.5
-
-    return Trail
-end
-
-
-local function InitializeTrails()
-    TrailsPerPart = {}
-    for _, PartName in pairs(BodyParts) do
-        local Part = Character:FindFirstChild(PartName)
-        if Part and Part:IsA("BasePart") then
-            local IsArm = PartName:find("Arm")
-            local A0, A1 = AddAttachments(Part, IsArm)
-            local T1 = CreateTrail(Part, A0, A1)
-            local T2 = T1:Clone()
-            T2.Parent = Part
-            TrailsPerPart[Part] = {T1, T2, A0, A1}
-        end
-    end
-end
-
-local function CreateInvisibleWater(Part)
-    if Part:FindFirstChild("FakeWater") then return end
-    local Clone = Instance.new("Part")
-    Clone.Size = Part.Size
-    Clone.CFrame = Part.CFrame
-    Clone.Anchored = true
-    Clone.CanCollide = true
-    Clone.Transparency = 1
-    Clone.Name = "FakeWater"
-    Clone.Parent = workspace
-end
-
-local function HeartbeatUpdate()
-    for Part, Data in pairs(TrailsPerPart) do
-        local T1, T2, A0, A1 = Data[1], Data[2], Data[3], Data[4]
-        local DestroyTrail = math.random(1,2) == 1 and T1 or T2
-        DestroyTrail:Destroy()
-        local KeepTrail = DestroyTrail == T1 and T2 or T1
-        local NewTrail = KeepTrail:Clone()
-        NewTrail.Parent = Part
-        if DestroyTrail == T1 then
-            TrailsPerPart[Part][1] = NewTrail
-        else
-            TrailsPerPart[Part][2] = NewTrail
-        end
-    end
-
-    for _, Part in pairs(workspace:GetChildren()) do
-        if Part.Name == "Water" and Part:IsA("BasePart") then
-            CreateInvisibleWater(Part)
-        end
-    end
-    
-
-    if _G.TODC then
-        game:GetService('Lighting').TimeOfDay = "00:00:00"
-    end
-end
-
-
-
-
-
-
-
-local generalEnableSound = Instance.new("Sound")
-generalEnableSound.SoundId = "rbxassetid://9112776526"
-generalEnableSound.Volume = 0.8
-generalEnableSound.Looped = true
-generalEnableSound.RollOffMode = Enum.RollOffMode.Linear
-generalEnableSound.RollOffMaxDistance = 200
-generalEnableSound.RollOffMinDistance = 10
-generalEnableSound.Parent = HRP
-
-local runSound1 = Instance.new("Sound")
-runSound1.SoundId = "rbxassetid://5113213873"
-runSound1.Volume = 0.3
-runSound1.Looped = true
-runSound1.RollOffMode = Enum.RollOffMode.Linear
-runSound1.RollOffMaxDistance = 200
-runSound1.RollOffMinDistance = 10
-runSound1.Parent = HRP
-
-local runSound2 = Instance.new("Sound")
-runSound2.SoundId = "rbxassetid://4738483700"
-runSound2.Volume = 0.5
-runSound2.Looped = false
-runSound2.RollOffMode = Enum.RollOffMode.Linear
-runSound2.RollOffMaxDistance = 200
-runSound2.RollOffMinDistance = 10
-runSound2.Parent = HRP
-
-local runSound3 = Instance.new("Sound")
-runSound3.SoundId = "rbxassetid://6336173633"
-runSound3.Volume = 0.3
-runSound3.Looped = true
-runSound3.RollOffMode = Enum.RollOffMode.Linear
-runSound3.RollOffMaxDistance = 200
-runSound3.RollOffMinDistance = 10
-runSound3.Parent = HRP
-
-local runSound4 = Instance.new("Sound")
-runSound4.SoundId = "rbxassetid://3308152153"
-runSound4.Volume = 0.3
-runSound4.Looped = true
-runSound4.RollOffMode = Enum.RollOffMode.Linear
-runSound4.RollOffMaxDistance = 200
-runSound4.RollOffMinDistance = 10
-runSound4.Parent = HRP
-
-local runSound5 = Instance.new("Sound")
-runSound5.SoundId = "rbxassetid://2852749304"
-runSound5.Volume = 0.3
-runSound5.Looped = false
-runSound5.RollOffMode = Enum.RollOffMode.Linear
-runSound5.RollOffMaxDistance = 200
-runSound5.RollOffMinDistance = 10
-runSound5.Parent = HRP
-
-
-
-
-
-
-local stopSound = Instance.new("Sound")
-stopSound.SoundId = "rbxassetid://4944377949"
-stopSound.Volume = 0.5
-stopSound.Looped = false
-stopSound.RollOffMode = Enum.RollOffMode.Linear
-stopSound.RollOffMaxDistance = 200
-stopSound.RollOffMinDistance = 10
-stopSound.Parent = HRP
-stopSound.Volume = 0.5
-stopSound.Looped = false
-stopSound.Parent = HRP
-
-
-local wasRunning = false
-local lastWalkSpeed = 0
-local soundConnection = nil
-
-local function UpdateSounds()
-    if not enabled then return end
-    
-    local currentSpeed = Humanoid.WalkSpeed
-    local isMoving = Humanoid.MoveDirection.Magnitude > 0
-    local isRunning = isMoving and currentSpeed > 0
-    
-
-    if isRunning then
-        if not wasRunning then
-
-            if not runSound1.IsPlaying then runSound1:Play() end
-            if not runSound3.IsPlaying then runSound3:Play() end
-            if not runSound4.IsPlaying then runSound4:Play() end
-        end
-
-        if not runSound2.IsPlaying then runSound2:Play() end
-        if not runSound5.IsPlaying then runSound5:Play() end
-    else
-
-        if wasRunning or (not isMoving and currentSpeed == 0) then
-            if runSound1.IsPlaying then runSound1:Stop() end
-            if runSound2.IsPlaying then runSound2:Stop() end
-            if runSound3.IsPlaying then runSound3:Stop() end
-            if runSound4.IsPlaying then runSound4:Stop() end
-            if runSound5.IsPlaying then runSound5:Stop() end
-        end
-    end
-    
-
-    if not isMoving and currentSpeed == 0 and wasRunning then
-        if not stopSound.IsPlaying then
-            stopSound:Play()
-        end
-    end
-    
-
-    wasRunning = isRunning
-    lastWalkSpeed = currentSpeed
-end
-
-
-
-
-local function UpdateAnimationsAndFOV()
-    if not enabled then return end
-    
-    local isMoving = Humanoid.MoveDirection.Magnitude > 0
-    local isFalling = Humanoid.FloorMaterial == Enum.Material.Air and Humanoid.MoveDirection.Magnitude == 0
-    
-    if isMoving then
-
-        if not RunAnimTrack.IsPlaying then 
-            if IdleAnimTrack.IsPlaying then IdleAnimTrack:Stop() end
-            RunAnimTrack:Play() 
-        end
-        RunAnimTrack:AdjustSpeed(14)
-        
-
-        if Camera.FieldOfView ~= 140 then
-            if CurrentTween then CurrentTween:Cancel() end
-            CurrentTween = TweenService:Create(Camera, FOVTweenInfo, {FieldOfView = 140})
-            CurrentTween:Play()
-        end
-    else
-
-        if RunAnimTrack.IsPlaying then RunAnimTrack:Stop() end
-        
-
-        if not isFalling and not IdleAnimTrack.IsPlaying then 
-            IdleAnimTrack:Play() 
-        elseif isFalling and IdleAnimTrack.IsPlaying then
-            IdleAnimTrack:Stop()
-        end
-        
-
-        if Camera.FieldOfView ~= 70 then
-            if CurrentTween then CurrentTween:Cancel() end
-            CurrentTween = TweenService:Create(Camera, FOVTweenInfo, {FieldOfView = 70})
-            CurrentTween:Play()
-        end
-    end
-end
-
-local animConnection
-
-local function enableAll()
-    if enabled then return end
-    enabled = true
-    Humanoid.WalkSpeed = defaultWalkSpeed
-    InitializeTrails()
-    heartbeatConnection = RunService.Heartbeat:Connect(HeartbeatUpdate)
-
-    animConnection = RunService.RenderStepped:Connect(UpdateAnimationsAndFOV)
-    
-
-    if not generalEnableSound.IsPlaying then
-        generalEnableSound:Play()
-    end
-    
-
-    soundConnection = RunService.RenderStepped:Connect(UpdateSounds)
-    
-    if Humanoid.MoveDirection.Magnitude == 0 then
-        IdleAnimTrack:Play()
-    end
-end
-
-local function disableAll()
-    if not enabled then return end
-    enabled = false
-    Humanoid.WalkSpeed = 25
-    if heartbeatConnection then heartbeatConnection:Disconnect() heartbeatConnection = nil end
-    if animConnection then animConnection:Disconnect() animConnection = nil end
-    if soundConnection then soundConnection:Disconnect() soundConnection = nil end
-    
-
-    if generalEnableSound.IsPlaying then generalEnableSound:Stop() end
-    if runSound1.IsPlaying then runSound1:Stop() end
-    if runSound2.IsPlaying then runSound2:Stop() end
-    if runSound3.IsPlaying then runSound3:Stop() end
-    if runSound4.IsPlaying then runSound4:Stop() end
-    if runSound5.IsPlaying then runSound5:Stop() end
-    if stopSound.IsPlaying then stopSound:Stop() end
-    
-
-    wasRunning = false
-    
-    for Part, Data in pairs(TrailsPerPart) do
-        for i=1,2 do
-            if Data[i] and Data[i].Parent then
-                Data[i]:Destroy()
-            end
-        end
-    end
-    TrailsPerPart = {}
-    if RunAnimTrack.IsPlaying then RunAnimTrack:Stop() end
-    if IdleAnimTrack.IsPlaying then IdleAnimTrack:Stop() end
-    Camera.FieldOfView = 70
-end
-
-local thrownFolder = workspace:FindFirstChild("Thrown")
-if not thrownFolder then
-    thrownFolder = Instance.new("Folder")
-    thrownFolder.Name = "Thrown"
-    thrownFolder.Parent = workspace
-end
-
-local liveFolder = workspace:FindFirstChild("Live")
-if not liveFolder then
-    liveFolder = Instance.new("Folder")
-    liveFolder.Name = "Live"
-    liveFolder.Parent = workspace
-end
-
-
-local l_Thrown_40 = workspace:FindFirstChild("Thrown")
-if not thrownFolder then
-    thrownFolder = Instance.new("Folder")
-    thrownFolder.Name = "Thrown"
-    thrownFolder.Parent = workspace
-end
-
-
-
-
-local idleParticleConnection
-local lastRunningState = false
-
-
-idleParticleConnection = h.Running:Connect(function(speed)
-
-    if h.WalkSpeed > 100 then
-        if speed > 0 then
-
-            DisableLightningGlobal()
-            lastRunningState = true
-        else
-
-            EnableLightningGlobal()
-            lastRunningState = false
-        end
-    else
-
-        DisableLightningGlobal()
-    end
-end)
-
-
-
-
-local TextChatService = game:GetService("TextChatService")
-local textChannel
-
-
-local function InitializeTextChannel()
-    if textChannel then return true end
-    
-    local success = pcall(function()
-        textChannel = TextChatService:WaitForChild("TextChannels"):WaitForChild("RBXGeneral")
-    end)
-    
-    if success and textChannel then
-        print("📡 TextChannel initialized!")
-        return true
-    else
-        warn("⚠️ Failed to initialize TextChannel")
-        return false
-    end
-end
-
-local function BroadcastState(stateType, value)
-
-    if not textChannel and not InitializeTextChannel() then return end
-    
-    local message = ""
-    
-    if stateType == "speed" and value then
-        message = ".1"
-    elseif stateType == "phase" and value then
-        message = ".2"
-    elseif stateType == "stop" then
-        message = ".3"
-    else
-        return
-    end
-    
-
-    pcall(function()
-        textChannel:SendAsync(message)
-    end)
-end
-
-local syncConnection
-
-local function SetupSyncListener()
-
-    if not textChannel and not InitializeTextChannel() then return end
-    
-    print("👂 Listening for speedster commands (.1, .2, .3)...")
-    
-    syncConnection = textChannel.MessageReceived:Connect(function(textChatMessage)
-
-        local msgText = textChatMessage.Text
-        local textSource = textChatMessage.TextSource
-        
-        if not textSource then return end
-        
-        local senderUserId = textSource.UserId
-        if senderUserId == player.UserId then return end
-        
-
-        local senderPlayer = Players:GetPlayerByUserId(senderUserId)
-        if not senderPlayer or not IsAllowed(senderPlayer) then 
-            return 
-        end
-        
-
-        local senderData = PlayerData[senderUserId]
-        if not senderData then return end
-        
-
-        if msgText == ".1" then
-
-            print("🔄 " .. textSource.Name .. " enabled speed!")
-            
-            -- Call the player's EnableAllCoolStuff function to set up and enable their trails on our client
-            if senderData.EnableAllCoolStuff then
-                pcall(function()
-                    senderData.EnableAllCoolStuff()
-                end)
-            end
-            
-            if senderData.ParticleRef and senderData.ParticleRef.Parent then
-                senderData.ParticleRef.Enabled = true
-            end
-            
-        elseif msgText == ".2" then
-
-            print("🔄 " .. textSource.Name .. " enabled phase!")
-
-            
-        elseif msgText == ".3" then
-
-            print("🔄 " .. textSource.Name .. " stopped all effects!")
-            
-            -- Call the player's DisableCoolStuff function to disable their trails on our client
-            if senderData.DisableCoolStuff then
-                pcall(function()
-                    senderData.DisableCoolStuff()
-                end)
-            end
-            
-            if senderData.ParticleRef and senderData.ParticleRef.Parent then
-                senderData.ParticleRef.Enabled = false
-            end
-        end
-    end)
-end
-
-
-if isLocalPlayer then
-    task.wait(2)
-    SetupSyncListener()
-end
-
-if isLocalPlayer then
-    local radius=10
-local speed=400
-local angle=0
-local ws0=25
-h.WalkSpeed=ws0
-local spd=false
-
-local pg=player:WaitForChild("PlayerGui")
-local gui=Instance.new("ScreenGui")
-gui.Parent=pg
-gui.Name="PhaseGui"
-gui.ResetOnSpawn=false
-gui.IgnoreGuiInset=true
-
-local baseColor=Color3.fromRGB(40,40,50)
-
-local function cb(parent,pos,size,text,tcol)
-    local f=Instance.new("Frame")
-    f.Parent=parent
-    f.Size=size
-    f.Position=pos
-    f.BackgroundColor3=baseColor
-    f.BackgroundTransparency=0.3
-    Instance.new("UICorner",f).CornerRadius=UDim.new(0,8)
-    local s=Instance.new("UIStroke",f)
-    s.Color=Color3.fromRGB(80,80,90)
-    s.Thickness=2
-    local b=Instance.new("TextButton")
-    b.Parent=f
-    b.Size=UDim2.new(1,0,1,0)
-    b.BackgroundTransparency=1
-    b.Text=text
-    b.TextColor3=tcol
-    b.TextScaled=true
-    b.Font=Enum.Font.GothamBold
-    b.AutoButtonColor=false
-    return f,b
-end
-
-local sh,sb=cb(gui,UDim2.new(1,-160,0,10),UDim2.new(0,150,0,40),"STOP",Color3.fromRGB(255,100,100))
-local mir,mirb=cb(gui,UDim2.new(0,10,0,10),UDim2.new(0,150,0,40),"Angular Mirage",Color3.fromRGB(100,200,255))
-local ph,phb=cb(gui,UDim2.new(0,10,0,60),UDim2.new(0,150,0,40),"Phase",Color3.fromRGB(150,255,150))
-local sp,spb=cb(gui,UDim2.new(0,10,0,110),UDim2.new(0,150,0,40),"Enable Speed",Color3.fromRGB(255,255,100))
-
-local ang=false
-local phs=false
-local nc=false
-local ocf=HRP.CFrame
-local occ=cam.CameraType
-
-local function circle(dt)
-    if not isLocalPlayer then return end
-    if not ang then return end
-
-V88()
-
-    angle+=dt*speed/radius
-    local o=Vector3.new(math.cos(angle)*radius,0,math.sin(angle)*radius)
-    local t=ocf.Position+o
-    local d=t-HRP.Position
-    HRP.AssemblyLinearVelocity=d/dt
-    if d.Magnitude>0.1 then
-        HRP.CFrame=CFrame.new(HRP.Position,HRP.Position+Vector3.new(d.X,0,d.Z))
-    end
-end
-
-local function sn(state)
-    nc=state
-    for _,v in next,CharacterRef:GetDescendants() do
-        if v:IsA("BasePart") then v.CanCollide=not state end
-    end
-end
-
-mirb.MouseButton1Click:Connect(function()
-
-StopVibrate()
-    
-
-    StopAllPlayerSounds()
-
-    DisableDarkAura()
-    ang=not ang
-    playerData.ang = ang
-    if ang then
-
-V88()
-
-        ocf=HRP.CFrame
-        occ=cam.CameraType
-        cam.CameraType=Enum.CameraType.Scriptable
-        sn(true)
-    else
-
-V87()
-
-        HRP.AssemblyLinearVelocity=Vector3.new()
-        cam.CameraType=occ
-        sn(false)
-    end
-end)
-
-phb.MouseButton1Click:Connect(function()
-    phs=not phs
-    playerData.phs = phs
-    if phs then
-        sn(true)
-
-StartVibrate()
-
-        EnableDarkAura()
-        
-
-        BroadcastState("phase", true)
-    else
-
-StopVibrate()
-    
-
-    StopAllPlayerSounds()
-
-        sn(false)
-        DisableDarkAura()
-        
-
-        BroadcastState("phase", false)
-    end
-end)
-
-local a
-local x
-local t = false
-local b = "rbxassetid://897"
-
-local heartbeatConnection
-local runningConnection
-
-
-local function storeConnection(conn)
-    table.insert(playerData.connections, conn)
     return conn
 end
 
-spb.MouseButton1Click:Connect(function()
-    spd = not spd
-    playerData.spd = spd
-
-V89()
-
-V87()
-
-    if spd then
-        if heartbeatConnection then heartbeatConnection:Disconnect() end
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
-            if h and h.Parent then
-                h.WalkSpeed = 375
-            end
-        end)
-
-EnableLightningGlobal()
-
-EnableAllCoolStuff()
-
-
-        BroadcastState("speed", true)
-
-
-
-        if runningConnection then
-            runningConnection:Disconnect()
-            runningConnection = nil
-        end
-
-        runningConnection = h.Running:Connect(function(s)
-            if not spd then return end
-
-StopEffect() 
-
-            if s > 0 then
-                if not t then
-                    t = true
-
-                    PlayRandomRunStartSound()
-                    CurrentShaker:Shake(ShakePresets.HeavyHit())
-                    if x then x:Destroy() end
-                    task.delay(0.3, function() t = false end)
-                end
-            else
-
-                StartEffect()
-            end
-        end)
-
-        enableAll()
-    else
-
-DisableLightningGlobal()
-
-StopEffect() 
-
-DisableCoolStuff()
-
-        if heartbeatConnection then
-            heartbeatConnection:Disconnect()
-            heartbeatConnection = nil
-        end
-        h.WalkSpeed = ws0
-
-        if x then x:Destroy() end
-        if a then a:Destroy() end
-
-V88()
-
-V90()
-
-        StopEffect()
-        if runningConnection then
-            runningConnection:Disconnect()
-            runningConnection = nil
-        end
-
-        disableAll()
-    end
-end)
-
-sb.MouseButton1Click:Connect(function()
-    StopEffect()
-    if heartbeatConnection then
-        heartbeatConnection:Disconnect()
-        heartbeatConnection = nil
-    end
-    if runningConnection then
-        runningConnection:Disconnect()
-        runningConnection = nil
-    end
-    disableAll()
-
-    if HRP and HRP.Parent then
-        HRP.AssemblyLinearVelocity = Vector3.new()
-    end
-    if h and h.Parent then
-        h.WalkSpeed = ws0
-    end
-    
-
-    playerData.ang = false
-    playerData.phs = false
-    playerData.spd = false
-    ang = false
-    phs = false
-    spd = false
-
-    if x then pcall(function() x:Destroy() end) end
-    if a then pcall(function() a:Destroy() end) end
-
-    DisableLightningGlobal()
-    DisableCoolStuff()
-    
-
-    BroadcastState("stop")
-    V88()
-    V90()
-    StopVibrate()
-    
-
-    StopAllPlayerSounds()
-    DisableDarkAura()
-
-    if cam then
-        cam.CameraType = Enum.CameraType.Custom
-        if cam.FieldOfView ~= 70 then
-            local info = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-            local goal = { FieldOfView = 70 }
-            ts:Create(cam, info, goal):Play()
-        end
-    end
-end)
-
-local function gnp()
-    local np=nil
-    local md=9999
-    for _,pl in next,game.Players:GetPlayers() do
-        if pl~=player then
-            local cc=pl.Character
-            local hr=cc and cc:FindFirstChild("HumanoidRootPart")
-            local d=hr and (HRP.Position-hr.Position).Magnitude
-            if d and d<md then md=d np=hr end
-        end
-    end
-    return np
+local function GetLines(text)
+    local p = Instance.new("GetTextBoundsParams")
+    p.Text  = text
+    p.Font  = Font.new("rbxasset://fonts/families/SourceSansPro.json",
+                        Enum.FontWeight.Bold, Enum.FontStyle.Italic)
+    p.Size  = 24
+    p.Width = 312
+    return math.ceil(TextService:GetTextBoundsAsync(p).Y / 24)
 end
 
-local mainHeartbeat = RunService.Heartbeat:Connect(function(dt)
-    if not CharacterRef or not CharacterRef.Parent then return end
-    if nc then
-        for _,v in next,CharacterRef:GetDescendants() do
-            if v:IsA("BasePart") then 
-                pcall(function() v.CanCollide=false end)
-            end
-        end
+-- NotificationGui must exist in PlayerGui (add it in Studio or via another script)
+local Gui       = lp:WaitForChild("PlayerGui"):WaitForChild("NotificationGui")
+Gui.DisplayOrder = 9
+local Templates = Gui:WaitForChild("Templates")
+
+cam:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+    for _, frame in pairs(Active) do
+        local vs   = cam.ViewportSize
+        local min  = math.min(vs.X, vs.Y)
+        local base = math.min(BaseViewport.X, BaseViewport.Y)
+        frame.Message.TextSize    = math.floor(24 * (vs.Y / BaseViewport.Y))
+        frame.UIStroke.Thickness  = min / base * 3
     end
-    circle(dt)
 end)
-table.insert(playerData.connections, mainHeartbeat)
 
-local targetAnimId = "rbxassetid://108670084190135"
+function Notify(text, duration)
+    duration = duration or math.min(5, 4 * utf8.len(text) / 50)
+    Counter  = Counter + 1
+    local frame = Templates.Notification:Clone()
+    frame.Visible      = true
+    frame.LayoutOrder  = -Counter
+    frame.UIStroke.Color = DefaultColor
+    frame.Message.Text = text
+    frame.Message.MaxVisibleGraphemes = 0
 
-local animPlayedConn = h.AnimationPlayed:Connect(function(animTrack)
-	if animTrack.Animation and animTrack.Animation.AnimationId == targetAnimId then
-		animTrack:Stop()
-	end
-end)
-table.insert(playerData.connections, animPlayedConn)
-V88()
+    local lines = GetLines(text)
+    local size  = lines > 1
+        and UDim2.fromScale(frame.Size.X.Scale, frame.Size.Y.Scale * (1 + 0.5 * (lines - 1)))
+        or  UDim2.fromScale(frame.Size.X.Scale, frame.Size.Y.Scale)
 
-V90()
+    local vs   = cam.ViewportSize
+    local min  = math.min(vs.X, vs.Y)
+    local base = math.min(BaseViewport.X, BaseViewport.Y)
+    frame.Message.TextSize   = math.floor(24 * (vs.Y / BaseViewport.Y))
+    frame.UIStroke.Thickness = min / base * 3
+    frame.Size = UDim2.fromScale(frame.Size.X.Scale, 0)
 
+    TweenService:Create(frame, TweenInfo.new(0.2), { Size = size }):Play()
 
+    local click = Instance.new("Sound")
+    click.SoundId = "rbxassetid://215658476"
+    click.Volume  = 0.3
+    click.Parent  = frame
 
+    frame.Parent = Gui.Container
+    table.insert(Active, frame)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ChosenSkibidi/VIP-SCRIPTS/refs/heads/main/useless%20notification"))()
+    local step = 1
+    TypeWrite(text, function(t)
+        if step == 1 and Gui.Enabled then click:Play() end
+        step = step % 3 + 1
+        frame.Message.MaxVisibleGraphemes = utf8.len(t)
+    end, 50)
 
-local g=player.PlayerGui.Attention.DialogueFrameAnnouncement
-
-g.Message.Text="Enjoy the script, and thank you for using our work."
-g:GetChildren()[11].Text="This script was created by Infinite Studios."
-
-local UserInputService = game:GetService("UserInputService")
-
-if UserInputService.TouchEnabled == false then
-    gui.Enabled = false
-end
-
-local function onCharacterAdded(char)
-    local humanoid = char:WaitForChild("Humanoid")
-    humanoid.Died:Connect(function()
-        if gui and gui.Enabled then
-            for _, child in ipairs(gui:GetChildren()) do
-                if child:IsA("GuiObject") then
-                    local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-                    local goal = {Position = child.Position + UDim2.new(0,0,-1,0)}
-                    local tween = TweenService:Create(child, tweenInfo, goal)
-                    tween:Play()
-                    
-                    tween.Completed:Connect(function()
-                        task.delay(10, function()
-                            if child then
-                                child:Destroy()
-                            end
-                        end)
-                    end)
-                end
-            end
-        end
+    task.delay(duration, function()
+        TweenService:Create(frame,          TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(frame.Message,  TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+        TweenService:Create(frame.UIStroke, TweenInfo.new(0.3), { Transparency = 1 }):Play()
+        task.delay(0.3, function()
+            frame:Destroy()
+            local i = table.find(Active, frame)
+            if i then table.remove(Active, i) end
+        end)
     end)
 end
 
-player.CharacterAdded:Connect(onCharacterAdded)
-
-if player.Character then
-    onCharacterAdded(player.Character)
-end
-
-uis.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-
-    if input.UserInputType == Enum.UserInputType.Keyboard then
-        local key = input.KeyCode
-        if key == Enum.KeyCode.Q then
-
-    spd = not spd
-    playerData.spd = spd
-
-V89()
-
-V87()
-
-    if spd then
-        if heartbeatConnection then heartbeatConnection:Disconnect() end
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
-            if h and h.Parent then
-                h.WalkSpeed = 375
-            end
-        end)
-
-EnableAllCoolStuff()
-
-EnableLightningGlobal()
-
-
-        BroadcastState("speed", true)
-
-
-
-        if runningConnection then
-            runningConnection:Disconnect()
-            runningConnection = nil
-        end
-
-        runningConnection = h.Running:Connect(function(s)
-            if not spd then return end
-
-StopEffect() 
-
-            if s > 0 then
-                if not t then
-                    t = true
-
-                    PlayRandomRunStartSound()
-                    CurrentShaker:Shake(ShakePresets.HeavyHit())
-                    if x then x:Destroy() end
-                    task.delay(0.3, function() t = false end)
-                end
-            else
-
-                StartEffect()
-            end
-        end)
-
-
-        enableAll()
-    else
-
-StopEffect() 
-
-DisableLightningGlobal()
-
-DisableCoolStuff()
-
-        if heartbeatConnection then
-            heartbeatConnection:Disconnect()
-            heartbeatConnection = nil
-        end
-        h.WalkSpeed = ws0
-
-        if x then x:Destroy() end
-        if a then a:Destroy() end
-
-V88()
-
-V90()
-
-        StopEffect()
-        if runningConnection then
-            runningConnection:Disconnect()
-            runningConnection = nil
-        end
-
-        disableAll()
-    end
-
-        elseif key == Enum.KeyCode.C then
-
-    phs=not phs
-    playerData.phs = phs
-    if phs then
-        sn(true)
-
-StartVibrate()
-
-        EnableDarkAura()
-        
-
-        BroadcastState("phase", true)
-    else
-
-StopVibrate()
-    
-
-    StopAllPlayerSounds()
-
-        sn(false)
-        DisableDarkAura()
-        
-
-        BroadcastState("phase", false)
-    end
-
-        elseif key == Enum.KeyCode.B then
-
-StopVibrate()
-    
-
-    StopAllPlayerSounds()
-
-    DisableDarkAura()
-    ang=not ang
-    playerData.ang = ang
-    if ang then
-
-V88()
-
-        ocf=r.CFrame
-        occ=cam.CameraType
-        cam.CameraType=Enum.CameraType.Scriptable
-        sn(true)
-    else
-
-V87()
-
-        HRP.AssemblyLinearVelocity=Vector3.new()
-        cam.CameraType=occ
-        sn(false)
-    end
-
-elseif key == Enum.KeyCode.X then
-
-    StopEffect()
-    if heartbeatConnection then
-        heartbeatConnection:Disconnect()
-        heartbeatConnection = nil
-    end
-    if runningConnection then
-        runningConnection:Disconnect()
-        runningConnection = nil
-    end
-    disableAll()
-
-    if HRP and HRP.Parent then
-        HRP.AssemblyLinearVelocity = Vector3.new()
-    end
-    if h and h.Parent then
-        h.WalkSpeed = ws0
-    end
-    
-
-    playerData.ang = false
-    playerData.phs = false
-    playerData.spd = false
-    ang = false
-    phs = false
-    spd = false
-
-    if x then pcall(function() x:Destroy() end) end
-    if a then pcall(function() a:Destroy() end) end
-
-    DisableLightningGlobal()
-    DisableCoolStuff()
-    
-
-    BroadcastState("stop")
-    V88()
-    V90()
-    StopVibrate()
-    
-
-    StopAllPlayerSounds()
-    DisableDarkAura()
-
-    if cam then
-        cam.CameraType = Enum.CameraType.Custom
-        if cam.FieldOfView ~= 70 then
-            local info = TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-            local goal = { FieldOfView = 70 }
-            ts:Create(cam, info, goal):Play()
-        end
-    end
-
-end
-end
-end)
-end
-
-local b = {
-
-    "Head",
-    "Left Arm",
-    "Right Arm",
-    "Left Leg",
-    "Right Leg",
-
-    "LeftUpperArm",
-    "LeftLowerArm",
-    "LeftHand",
-    "RightUpperArm",
-    "RightLowerArm",
-    "RightHand",
-
-    "LeftUpperLeg",
-    "LeftLowerLeg",
-    "LeftFoot",
-    "RightUpperLeg",
-    "RightLowerLeg",
-    "RightFoot"
+-- ═══════════════════════════════════════════════════════════
+-- CONSTANTS
+-- ═══════════════════════════════════════════════════════════
+local BONES = {
+    {"Head",       "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"},  {"LeftUpperArm",  "LeftLowerArm"},  {"LeftLowerArm",  "LeftHand"},
+    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"},  {"LeftUpperLeg",  "LeftLowerLeg"},  {"LeftLowerLeg",  "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"},
 }
 
-local ig = lightningAttachment
+local CORNERS = {
+    Vector3.new( 1, 1, 1), Vector3.new(-1, 1, 1),
+    Vector3.new( 1,-1, 1), Vector3.new(-1,-1, 1),
+    Vector3.new( 1, 1,-1), Vector3.new(-1, 1,-1),
+    Vector3.new( 1,-1,-1), Vector3.new(-1,-1,-1),
+}
 
-local function mk()
+local C_RED    = Color3.fromRGB(255,  55,  55)
+local C_YELLOW = Color3.fromRGB(255, 220,  45)
+local C_WHITE  = Color3.new(1, 1, 1)
+local C_PURPLE = Color3.fromRGB(80, 58, 195)
+
+-- ═══════════════════════════════════════════════════════════
+-- SCREEN GUI
+-- ═══════════════════════════════════════════════════════════
+local sg = Instance.new("ScreenGui")
+sg.Name           = "UniversalAdmin"
+sg.ResetOnSpawn   = false
+sg.IgnoreGuiInset = true
+sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+sg.Parent         = lp:WaitForChild("PlayerGui")
+
+-- Full-screen layer for ESP Frame-lines (ZIndex 1 = behind panel)
+local espLayer = Instance.new("Frame")
+espLayer.Name                   = "ESPLayer"
+espLayer.Size                   = UDim2.new(1, 0, 1, 0)
+espLayer.BackgroundTransparency = 1
+espLayer.BorderSizePixel        = 0
+espLayer.ClipsDescendants       = false
+espLayer.ZIndex                 = 1
+espLayer.Parent                 = sg
+
+-- ── Crosshair ──────────────────────────────────────────────
+do
+    local ch = Instance.new("Frame")
+    ch.Name                   = "Crosshair"
+    ch.AnchorPoint            = Vector2.new(0.5, 0.5)
+    ch.Position               = UDim2.new(0.5, 0, 0.5, 0)
+    ch.Size                   = UDim2.new(0, 0, 0, 0)   -- container, no bg
+    ch.BackgroundTransparency = 1
+    ch.BorderSizePixel        = 0
+    ch.ZIndex                 = 3
+    ch.Parent                 = sg
+
+    local function makeLine(w, h, ox, oy)
+        local f = Instance.new("Frame")
+        f.AnchorPoint            = Vector2.new(0.5, 0.5)
+        f.Position               = UDim2.new(0, ox, 0, oy)
+        f.Size                   = UDim2.new(0, w, 0, h)
+        f.BackgroundColor3       = Color3.new(1, 1, 1)
+        f.BorderSizePixel        = 0
+        f.ZIndex                 = 4
+        f.Parent                 = ch
+        -- thin black outline for visibility on any background
+        local stroke = Instance.new("UIStroke")
+        stroke.Color     = Color3.new(0, 0, 0)
+        stroke.Thickness = 1
+        stroke.Parent    = f
+        return f
+    end
+
+    -- horizontal bar (14 px wide, 2 px tall, gap of 4 px either side of centre)
+    makeLine(14, 2, -9, 0)   -- left arm
+    makeLine(14, 2,  9, 0)   -- right arm
+    -- vertical bar (2 px wide, 14 px tall)
+    makeLine(2, 14, 0, -9)   -- top arm
+    makeLine(2, 14, 0,  9)   -- bottom arm
+    -- centre dot (2x2)
+    makeLine(2, 2, 0, 0)
 end
 
-local godCS2 = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(200,200,200)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
-})
+-- ── Floating ⚡ button ──────────────────────────────────────
+local fab = Instance.new("TextButton")
+fab.Size             = UDim2.new(0, 46, 0, 46)
+fab.Position         = UDim2.new(0, 6, 0.45, 0)
+fab.BackgroundColor3 = Color3.fromRGB(28, 22, 58)
+fab.BorderSizePixel  = 0
+fab.Text             = "⚡"
+fab.TextSize         = 22
+fab.TextColor3       = C_WHITE
+fab.Font             = Enum.Font.GothamBold
+fab.ZIndex           = 20
+fab.Parent           = sg
+Instance.new("UICorner", fab).CornerRadius = UDim.new(0, 12)
+local fabStroke = Instance.new("UIStroke")
+fabStroke.Color = C_PURPLE; fabStroke.Thickness = 1.5; fabStroke.Parent = fab
 
-local nwaCS2 = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(210,160,255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(200,100,255))
-})
+-- ── Main panel ─────────────────────────────────────────────
+local panel = Instance.new("Frame")
+panel.Name             = "Panel"
+panel.Size             = UDim2.new(0, 228, 0.72, 0)
+panel.Position         = UDim2.new(0, 58, 0.14, 0)
+panel.BackgroundColor3 = Color3.fromRGB(10, 8, 20)
+panel.BorderSizePixel  = 0
+panel.ClipsDescendants = false
+panel.Visible          = false
+panel.ZIndex           = 5
+panel.Parent           = sg
+Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 12)
+local panelStroke = Instance.new("UIStroke")
+panelStroke.Color = Color3.fromRGB(55, 40, 130)
+panelStroke.Thickness = 1.5
+panelStroke.Parent = panel
 
-local zoomCS2 = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(100,168,255)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(26,144,255))
-})
+-- FAB opens/closes panel
+fab.MouseButton1Click:Connect(function()
+    panel.Visible = not panel.Visible
+end)
+-- Keyboard toggle
+UserInputService.InputBegan:Connect(function(i, gpe)
+    if gpe then return end
+    if i.KeyCode == Enum.KeyCode.RightBracket then
+        panel.Visible = not panel.Visible
+    end
+end)
 
-local kidCS = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,150)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,0))
-})
+-- ── Title bar ──────────────────────────────────────────────
+local tBar = Instance.new("Frame")
+tBar.Size             = UDim2.new(1, 0, 0, 34)
+tBar.BackgroundColor3 = Color3.fromRGB(20, 16, 46)
+tBar.BorderSizePixel  = 0
+tBar.ZIndex           = 6
+tBar.Parent           = panel
+Instance.new("UICorner", tBar).CornerRadius = UDim.new(0, 12)
+-- patch square corners on bottom of title bar
+local tPatch = Instance.new("Frame")
+tPatch.Size             = UDim2.new(1, 0, 0, 12)
+tPatch.Position         = UDim2.new(0, 0, 1, -12)
+tPatch.BackgroundColor3 = Color3.fromRGB(20, 16, 46)
+tPatch.BorderSizePixel  = 0; tPatch.ZIndex = 6; tPatch.Parent = tBar
 
-local rfCS2 = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,84,84)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,0,0))
-})
+local tLbl = Instance.new("TextLabel")
+tLbl.Size               = UDim2.new(1, -10, 1, 0)
+tLbl.Position           = UDim2.new(0, 10, 0, 0)
+tLbl.BackgroundTransparency = 1
+tLbl.Text               = "⚡ Universal Admin"
+tLbl.TextColor3         = Color3.fromRGB(155, 130, 255)
+tLbl.TextSize           = 13
+tLbl.Font               = Enum.Font.GothamBold
+tLbl.TextXAlignment     = Enum.TextXAlignment.Left
+tLbl.ZIndex             = 7; tLbl.Parent = tBar
 
-local regularCS2 = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255,59,33)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255,59,33))
-})
+-- ── Dragging ───────────────────────────────────────────────
+do
+    local dragging, dragStart, startPos = false, nil, nil
+    tBar.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = i.Position; startPos = panel.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement
+                      or i.UserInputType == Enum.UserInputType.Touch) then
+            local d = i.Position - dragStart
+            panel.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X,
+                                       startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1
+        or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
 
+-- ── Scroll area ────────────────────────────────────────────
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size                  = UDim2.new(1, 0, 1, -34)
+scroll.Position              = UDim2.new(0, 0, 0, 34)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel       = 0
+scroll.ScrollBarThickness    = 3
+scroll.ScrollBarImageColor3  = C_PURPLE
+scroll.AutomaticCanvasSize   = Enum.AutomaticSize.Y
+scroll.CanvasSize            = UDim2.new(0, 0, 0, 0)
+scroll.ZIndex                = 6; scroll.Parent = panel
+local scrollList = Instance.new("UIListLayout")
+scrollList.Padding             = UDim.new(0, 5)
+scrollList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+scrollList.Parent              = scroll
+local scrollPad = Instance.new("UIPadding")
+scrollPad.PaddingTop    = UDim.new(0, 6); scrollPad.PaddingBottom = UDim.new(0, 6)
+scrollPad.PaddingLeft   = UDim.new(0, 6); scrollPad.PaddingRight  = UDim.new(0, 6)
+scrollPad.Parent        = scroll
 
-local colorUpdateRunning = true
-local colorUpdateThread = task.spawn(function()
-    while colorUpdateRunning and player and player.Parent and CharacterRef and CharacterRef.Parent do
-        local success, err = pcall(function()
-            local cs = nil
-            local spot = nil
+-- ═══════════════════════════════════════════════════════════
+-- UI HELPERS
+-- ═══════════════════════════════════════════════════════════
+local function newSection(title)
+    local f = Instance.new("Frame")
+    f.Size             = UDim2.new(1, 0, 0, 0)
+    f.AutomaticSize    = Enum.AutomaticSize.Y
+    f.BackgroundColor3 = Color3.fromRGB(16, 13, 30)
+    f.BorderSizePixel  = 0; f.ZIndex = 7; f.Parent = scroll
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+    local fl = Instance.new("UIListLayout"); fl.Padding = UDim.new(0, 4); fl.Parent = f
+    local fp = Instance.new("UIPadding")
+    fp.PaddingTop = UDim.new(0,7); fp.PaddingBottom = UDim.new(0,7)
+    fp.PaddingLeft = UDim.new(0,8); fp.PaddingRight = UDim.new(0,8); fp.Parent = f
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(1, 0, 0, 15)
+    lbl.BackgroundTransparency = 1; lbl.Text = title
+    lbl.TextColor3         = Color3.fromRGB(115, 90, 220); lbl.TextSize = 10
+    lbl.Font               = Enum.Font.GothamBold
+    lbl.TextXAlignment     = Enum.TextXAlignment.Left; lbl.ZIndex = 8; lbl.Parent = f
+    local div = Instance.new("Frame")
+    div.Size             = UDim2.new(1, 0, 0, 1)
+    div.BackgroundColor3 = Color3.fromRGB(38, 32, 80)
+    div.BorderSizePixel  = 0; div.ZIndex = 8; div.Parent = f
+    return f
+end
 
-            if speedsterType == "RF" then
-                cs = rfCS2
-                spot = Color3.fromRGB(255,0,0)
-            elseif speedsterType == "KidFlash" then
-                cs = kidCS
-                spot = Color3.fromRGB(255,255,0)
-            elseif speedsterType == "Zoom" then
-                cs = zoomCS2
-                spot = Color3.fromRGB(26,144,255)
-            elseif speedsterType == "GodOfSpeed" then
-                cs = godCS2
-                spot = Color3.fromRGB(255,220,0)
-            elseif speedsterType == "NWA" then
-                cs = nwaCS2
-                spot = Color3.fromRGB(200,100,255)
-            elseif speedsterType == "Regular" then
-                cs = regularCS2
-                spot = Color3.fromRGB(255,59,33)
+local function newToggle(parent, label, callback)
+    local row = Instance.new("Frame")
+    row.Size               = UDim2.new(1, 0, 0, 34)
+    row.BackgroundTransparency = 1; row.ZIndex = 8; row.Parent = parent
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(1, -50, 1, 0)
+    lbl.BackgroundTransparency = 1; lbl.Text = label
+    lbl.TextColor3         = Color3.fromRGB(210, 210, 210); lbl.TextSize = 12
+    lbl.Font               = Enum.Font.Gotham
+    lbl.TextXAlignment     = Enum.TextXAlignment.Left; lbl.ZIndex = 9; lbl.Parent = row
+    local bg = Instance.new("Frame")
+    bg.Size             = UDim2.new(0, 42, 0, 22)
+    bg.Position         = UDim2.new(1, -42, 0.5, -11)
+    bg.BackgroundColor3 = Color3.fromRGB(46, 41, 76); bg.BorderSizePixel = 0
+    bg.ZIndex           = 9; bg.Parent = row
+    Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("Frame")
+    knob.Size             = UDim2.new(0, 16, 0, 16)
+    knob.Position         = UDim2.new(0, 3, 0.5, -8)
+    knob.BackgroundColor3 = Color3.fromRGB(175, 175, 175); knob.BorderSizePixel = 0
+    knob.ZIndex           = 10; knob.Parent = bg
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local hit = Instance.new("TextButton")
+    hit.Size               = UDim2.new(1, 0, 1, 0)
+    hit.BackgroundTransparency = 1; hit.Text = ""; hit.ZIndex = 11; hit.Parent = bg
+    local state = false
+    local function setState(on)
+        state = on
+        TweenService:Create(bg, TweenInfo.new(0.15), {
+            BackgroundColor3 = on and Color3.fromRGB(78, 56, 192) or Color3.fromRGB(46, 41, 76)
+        }):Play()
+        TweenService:Create(knob, TweenInfo.new(0.15), {
+            Position         = on and UDim2.new(0, 23, 0.5, -8) or UDim2.new(0, 3, 0.5, -8),
+            BackgroundColor3 = on and C_WHITE or Color3.fromRGB(175, 175, 175)
+        }):Play()
+        callback(on)
+    end
+    hit.MouseButton1Click:Connect(function() setState(not state) end)
+    return row, setState
+end
+
+local function newInput(parent, ph, default)
+    local tb = Instance.new("TextBox")
+    tb.Size              = UDim2.new(1, 0, 0, 26)
+    tb.BackgroundColor3  = Color3.fromRGB(19, 16, 38); tb.BorderSizePixel = 0
+    tb.Text              = tostring(default or ""); tb.PlaceholderText = ph or ""
+    tb.TextColor3        = Color3.fromRGB(220, 220, 220)
+    tb.PlaceholderColor3 = Color3.fromRGB(90, 90, 110)
+    tb.TextSize          = 11; tb.Font = Enum.Font.Gotham
+    tb.ClearTextOnFocus  = false; tb.ZIndex = 9; tb.Parent = parent
+    Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+    local p = Instance.new("UIPadding"); p.PaddingLeft = UDim.new(0, 7); p.Parent = tb
+    return tb
+end
+
+local function newButton(parent, label, color, callback)
+    local b = Instance.new("TextButton")
+    b.Size             = UDim2.new(1, 0, 0, 30)
+    b.BackgroundColor3 = color or C_PURPLE; b.BorderSizePixel = 0
+    b.Text             = label; b.TextColor3 = C_WHITE
+    b.TextSize         = 12; b.Font = Enum.Font.GothamBold
+    b.ZIndex           = 9; b.Parent = parent
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    b.MouseButton1Click:Connect(callback)
+    return b
+end
+
+local function newNote(parent, text)
+    local l = Instance.new("TextLabel")
+    l.Size               = UDim2.new(1, 0, 0, 13)
+    l.BackgroundTransparency = 1; l.Text = text
+    l.TextColor3         = Color3.fromRGB(115, 115, 130); l.TextSize = 9
+    l.Font               = Enum.Font.Gotham
+    l.TextXAlignment     = Enum.TextXAlignment.Left; l.ZIndex = 9; l.Parent = parent
+    return l
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- SECTION: FLY
+-- ═══════════════════════════════════════════════════════════
+local flySection = newSection("✈  FLY")
+
+local flySpeedInput = newInput(flySection, "Fly speed (default: 100)", "100")
+flySpeedInput.FocusLost:Connect(function()
+    flySpeed = tonumber(flySpeedInput.Text) or flySpeed
+end)
+
+newNote(flySection, "Mobile: use joystick to move in camera direction")
+
+-- ── Core fly function (provided implementation) ────────────
+local function F(p, s)
+    local plr = p or lp
+    local spd = s or flySpeed
+    local c   = plr.Character or plr.CharacterAdded:Wait()
+    local h   = c:WaitForChild("Humanoid")
+    local r   = c:WaitForChild("HumanoidRootPart")
+    local bv  = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bv.Velocity = Vector3.zero
+    bv.P        = 1e5
+    bv.Parent   = r
+    local con
+    con = RunService.RenderStepped:Connect(function()
+        if bv and bv.Parent then
+            if h.MoveDirection.Magnitude > 0 then
+                bv.Velocity = cam.CFrame.LookVector * spd
+                r.CFrame    = CFrame.new(r.Position, r.Position + cam.CFrame.LookVector)
             else
-
-                cs = regularCS2
-                spot = Color3.fromRGB(255,59,33)
+                bv.Velocity = Vector3.zero
             end
+        else
+            if con then con:Disconnect() end
+        end
+    end)
+    return function()
+        if con then con:Disconnect() end
+        if bv  then bv:Destroy() end
+    end
+end
 
-            if cs and CharacterRef and CharacterRef.Parent then
-                mk()
+local function doEnableFly()
+    flyCleanup = F(lp, flySpeed)
+end
 
-                for _,n in pairs(b) do
-                    local pr = CharacterRef:FindFirstChild(n)
-                    if pr and pr.Parent then
-                        for _,t in pairs(pr:GetChildren()) do
-                            if t:IsA("Trail") and t.Parent then
-                                t.Color = cs
-                            end
-                        end
+local function doDisableFly()
+    if flyCleanup then flyCleanup(); flyCleanup = nil end
+end
+
+newToggle(flySection, "Enable Fly", function(on)
+    flyEnabled = on
+    if on then doEnableFly() else doDisableFly() end
+    Notify("Fly " .. (on and "enabled" or "disabled"))
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- SECTION: SPEED
+-- ═══════════════════════════════════════════════════════════
+local spdSection = newSection("🏃  SPEED")
+
+local spdInput = newInput(spdSection, "WalkSpeed (default: 32)", "32")
+spdInput.FocusLost:Connect(function()
+    walkSpeed = tonumber(spdInput.Text) or walkSpeed
+end)
+
+newToggle(spdSection, "Enable Speed", function(on)
+    speedEnabled = on
+    if not on then
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = 16 end
+        end
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- SECTION: ESP
+-- ═══════════════════════════════════════════════════════════
+local espSection = newSection("👁  ESP")
+
+newNote(espSection, "ESP: enemies only. ESP All: literally everything.")
+
+newToggle(espSection, "ESP",     function(on) espEnabled    = on; Notify("ESP " .. (on and "enabled" or "disabled")) end)
+newToggle(espSection, "ESP All", function(on) espAllEnabled = on; Notify("ESP All " .. (on and "enabled" or "disabled")) end)
+
+-- ═══════════════════════════════════════════════════════════
+-- SECTION: TARGET LOCK
+-- ═══════════════════════════════════════════════════════════
+local tlSection = newSection("🎯  TARGET LOCK")
+
+local tlStatusLbl = Instance.new("TextLabel")
+tlStatusLbl.Size               = UDim2.new(1, 0, 0, 15)
+tlStatusLbl.BackgroundTransparency = 1
+tlStatusLbl.Text               = "Status: OFF"
+tlStatusLbl.TextColor3         = Color3.fromRGB(155, 155, 155)
+tlStatusLbl.TextSize           = 11; tlStatusLbl.Font = Enum.Font.Gotham
+tlStatusLbl.TextXAlignment     = Enum.TextXAlignment.Left
+tlStatusLbl.ZIndex             = 9; tlStatusLbl.Parent = tlSection
+
+local function doStopTL()
+    tlEnabled = false
+    if tlConn then tlConn:Disconnect(); tlConn = nil end
+    tlTarget               = nil
+    tlStatusLbl.Text       = "Status: OFF"
+    tlStatusLbl.TextColor3 = Color3.fromRGB(155, 155, 155)
+end
+
+-- Returns { hrp, name } for nearest player OR bot
+local function getNearest()
+    local mc = lp.Character; if not mc then return end
+    local mh = mc:FindFirstChild("HumanoidRootPart"); if not mh then return end
+    local bestHRP, bestName, bd = nil, nil, math.huge
+
+    -- Check players
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local d = (hrp.Position - mh.Position).Magnitude
+                if d < bd then bestHRP = hrp; bestName = p.DisplayName; bd = d end
+            end
+        end
+    end
+
+    -- Check bots (botCache is keyed by Model)
+    for model in pairs(botCache) do
+        if model and model.Parent then
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local d = (hrp.Position - mh.Position).Magnitude
+                if d < bd then bestHRP = hrp; bestName = "[BOT] " .. model.Name; bd = d end
+            end
+        end
+    end
+
+    return bestHRP, bestName
+end
+
+local function doStartTL()
+    if tlEnabled then doStopTL(); return end
+    local hrp, name = getNearest()
+    if not hrp then
+        tlStatusLbl.Text = "No target found!"; return
+    end
+    local hum = hrp.Parent and hrp.Parent:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    tlEnabled              = true
+    tlTarget               = hrp   -- store HRP directly, works for both players and bots
+    tlStatusLbl.Text       = "Locked: " .. name
+    tlStatusLbl.TextColor3 = Color3.fromRGB(65, 245, 95)
+    tlConn = RunService.RenderStepped:Connect(function()
+        if not tlTarget or not tlTarget.Parent then doStopTL(); return end
+        local tu = tlTarget.Parent:FindFirstChildOfClass("Humanoid")
+        if not tu or tu.Health <= 0 then doStopTL(); return end
+        if cam.CameraType ~= Enum.CameraType.Scriptable then
+            local head = tlTarget.Parent and tlTarget.Parent:FindFirstChild("Head")
+            local aimPos = head and head.Position or tlTarget.Position
+            cam.CFrame = CFrame.new(cam.CFrame.Position, aimPos)
+        end
+    end)
+end
+
+newButton(tlSection, "🎯  Toggle Target Lock", Color3.fromRGB(68, 48, 165), doStartTL)
+
+-- ═══════════════════════════════════════════════════════════
+-- ESP ENGINE  (Frame-based — no Drawing API required)
+-- ═══════════════════════════════════════════════════════════
+local espCache = {}
+-- [Player] = { hl, bb, nameLbl, infoLbl, boxLines{4}, tracer, skelLines{14} }
+
+-- World → screen coords
+local function w2s(pos)
+    local v, on = cam:WorldToViewportPoint(pos)
+    return Vector2.new(v.X, v.Y), on, v.Z
+end
+
+-- Compute 2-D screen-space AABB from all character BaseParts
+local function charBounds(char)
+    local x0, y0 = math.huge,  math.huge
+    local x1, y1 = -math.huge, -math.huge
+    local hit = false
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+            local hs = part.Size * 0.5
+            for _, c in ipairs(CORNERS) do
+                local sp, on, d = w2s((part.CFrame * CFrame.new(hs * c)).Position)
+                if on and d > 0 then
+                    hit = true
+                    if sp.X < x0 then x0 = sp.X end
+                    if sp.Y < y0 then y0 = sp.Y end
+                    if sp.X > x1 then x1 = sp.X end
+                    if sp.Y > y1 then y1 = sp.Y end
+                end
+            end
+        end
+    end
+    if hit then return x0, y0, x1, y1 end
+end
+
+-- Create a rotatable Frame that acts as a 2-D line
+local function newLineFrame(color, thick)
+    local f = Instance.new("Frame")
+    f.AnchorPoint      = Vector2.new(0.5, 0.5)
+    f.BackgroundColor3 = color or C_RED
+    f.BorderSizePixel  = 0
+    f.ZIndex           = 2
+    f.Visible          = false
+    f.Size             = UDim2.new(0, 0, 0, thick or 2)
+    f.Parent           = espLayer
+    return f
+end
+
+-- Update a line Frame to stretch from p1 to p2 (both Vector2)
+local function drawLine(f, p1, p2, thick)
+    if not f then return end
+    local delta = p2 - p1
+    local len   = delta.Magnitude
+    if len < 1 then f.Visible = false; return end
+    f.Size     = UDim2.new(0, len, 0, thick or 2)
+    f.Position = UDim2.new(0, (p1.X + p2.X) * 0.5, 0, (p1.Y + p2.Y) * 0.5)
+    f.Rotation = math.deg(math.atan2(delta.Y, delta.X))
+    f.Visible  = true
+end
+
+-- Allocate all ESP objects for a player
+local function buildESP(p)
+    if espCache[p] then return end
+    local d = {}
+
+    -- Highlight instance (built-in Roblox — reliable outline + fill)
+    d.hl                     = Instance.new("Highlight")
+    d.hl.FillColor           = C_RED
+    d.hl.OutlineColor        = C_WHITE
+    d.hl.FillTransparency    = 0.6
+    d.hl.OutlineTransparency = 0
+    d.hl.Enabled             = false
+    d.hl.Parent              = workspace
+
+    -- BillboardGui: always-on-top name plate above HRP
+    d.bb             = Instance.new("BillboardGui")
+    d.bb.Size        = UDim2.new(0, 210, 0, 58)
+    d.bb.StudsOffset = Vector3.new(0, 3.5, 0)
+    d.bb.AlwaysOnTop = true
+    d.bb.Enabled     = false
+    d.bb.Parent      = workspace
+
+    d.nameLbl = Instance.new("TextLabel")
+    d.nameLbl.Size                   = UDim2.new(1, 0, 0, 16)
+    d.nameLbl.BackgroundTransparency = 1
+    d.nameLbl.TextColor3             = C_WHITE
+    d.nameLbl.TextSize               = 12
+    d.nameLbl.Font                   = Enum.Font.GothamBold
+    d.nameLbl.TextStrokeTransparency = 0.45
+    d.nameLbl.Parent                 = d.bb
+
+    d.infoLbl = Instance.new("TextLabel")
+    d.infoLbl.Size                   = UDim2.new(1, 0, 0, 42)
+    d.infoLbl.Position               = UDim2.new(0, 0, 0, 16)
+    d.infoLbl.BackgroundTransparency = 1
+    d.infoLbl.TextColor3             = Color3.fromRGB(130, 255, 130)
+    d.infoLbl.TextSize               = 10
+    d.infoLbl.Font                   = Enum.Font.Gotham
+    d.infoLbl.TextStrokeTransparency = 0.45
+    d.infoLbl.TextWrapped            = true
+    d.infoLbl.Parent                 = d.bb
+
+    -- 2-D box: 4 Frame lines (top, bottom, left, right)
+    d.boxLines = {}
+    for _ = 1, 4 do table.insert(d.boxLines, newLineFrame(C_RED, 2)) end
+
+    -- Tracer line
+    d.tracer = newLineFrame(C_RED, 2)
+
+    -- Skeleton lines (one per bone pair)
+    d.skelLines = {}
+    for _ = 1, #BONES do table.insert(d.skelLines, newLineFrame(C_YELLOW, 1.5)) end
+
+    espCache[p] = d
+end
+
+-- Free all ESP objects for a player
+local function destroyESP(p)
+    local d = espCache[p]; if not d then return end
+    if d.hl     then d.hl:Destroy() end
+    if d.bb     then d.bb:Destroy() end
+    if d.tracer then d.tracer:Destroy() end
+    for _, l in ipairs(d.boxLines  or {}) do l:Destroy() end
+    for _, l in ipairs(d.skelLines or {}) do l:Destroy() end
+    espCache[p] = nil
+end
+
+-- Hide all visuals without destroying (called when ESP master is off)
+local function hideAll(d)
+    if d.hl     then d.hl.Enabled    = false end
+    if d.bb     then d.bb.Enabled    = false end
+    if d.tracer then d.tracer.Visible = false end
+    for _, l in ipairs(d.boxLines  or {}) do l.Visible = false end
+    for _, l in ipairs(d.skelLines or {}) do l.Visible = false end
+end
+
+Players.PlayerRemoving:Connect(destroyESP)
+
+-- ═══════════════════════════════════════════════════════════
+-- BOT ESP  (orange — non-player humanoid models)
+-- ═══════════════════════════════════════════════════════════
+local C_ORANGE = Color3.fromRGB(255, 140, 0)
+
+local function buildBotESP(model)
+    if botCache[model] then return end
+    local d = {}
+
+    d.hl                     = Instance.new("Highlight")
+    d.hl.FillColor           = C_ORANGE
+    d.hl.OutlineColor        = C_WHITE
+    d.hl.FillTransparency    = 0.6
+    d.hl.OutlineTransparency = 0
+    d.hl.Enabled             = false
+    d.hl.Parent              = workspace
+
+    d.bb             = Instance.new("BillboardGui")
+    d.bb.Size        = UDim2.new(0, 165, 0, 38)
+    d.bb.StudsOffset = Vector3.new(0, 3.5, 0)
+    d.bb.AlwaysOnTop = true
+    d.bb.Enabled     = false
+    d.bb.Parent      = workspace
+
+    d.nameLbl = Instance.new("TextLabel")
+    d.nameLbl.Size                   = UDim2.new(1, 0, 0.52, 0)
+    d.nameLbl.BackgroundTransparency = 1
+    d.nameLbl.TextColor3             = C_ORANGE
+    d.nameLbl.TextSize               = 12
+    d.nameLbl.Font                   = Enum.Font.GothamBold
+    d.nameLbl.TextStrokeTransparency = 0.45
+    d.nameLbl.Parent                 = d.bb
+
+    d.infoLbl = Instance.new("TextLabel")
+    d.infoLbl.Size                   = UDim2.new(1, 0, 0.48, 0)
+    d.infoLbl.Position               = UDim2.new(0, 0, 0.52, 0)
+    d.infoLbl.BackgroundTransparency = 1
+    d.infoLbl.TextColor3             = Color3.fromRGB(255, 200, 100)
+    d.infoLbl.TextSize               = 10
+    d.infoLbl.Font                   = Enum.Font.Gotham
+    d.infoLbl.TextStrokeTransparency = 0.45
+    d.infoLbl.Parent                 = d.bb
+
+    d.boxLines = {}
+    for _ = 1, 4 do table.insert(d.boxLines, newLineFrame(C_ORANGE, 2)) end
+
+    d.tracer = newLineFrame(C_ORANGE, 2)
+
+    d.skelLines = {}
+    for _ = 1, #BONES do table.insert(d.skelLines, newLineFrame(C_ORANGE, 1.5)) end
+
+    botCache[model] = d
+end
+
+local function destroyBotESP(model)
+    local d = botCache[model]; if not d then return end
+    if d.hl     then d.hl:Destroy() end
+    if d.bb     then d.bb:Destroy() end
+    if d.tracer then d.tracer:Destroy() end
+    for _, l in ipairs(d.boxLines  or {}) do l:Destroy() end
+    for _, l in ipairs(d.skelLines or {}) do l:Destroy() end
+    botCache[model] = nil
+end
+
+-- Collect all current player character models so we can exclude them
+local function getPlayerChars()
+    local chars = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Character then chars[p.Character] = true end
+    end
+    return chars
+end
+
+-- Scan workspace every 1 second for non-player Humanoid models
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if not (espEnabled or espAllEnabled) then continue end
+
+        local playerChars = getPlayerChars()
+        local found       = {}
+
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Humanoid") then
+                local model = obj.Parent
+                -- Must be a Model, not a player character, not our own character
+                if model and model:IsA("Model")
+                   and not playerChars[model]
+                   and model ~= lp.Character
+                   and model:FindFirstChild("HumanoidRootPart") then
+                    found[model] = true
+                    if not botCache[model] then
+                        buildBotESP(model)
                     end
                 end
-
-                for _,v in pairs(CharacterRef:GetDescendants()) do
-                    if v:IsA("ParticleEmitter") and v.Parent then
-                        local cur = v
-                        local g = false
-                        while cur do
-                            if cur == ig then
-                                g = true
-                                break
-                            end
-                            cur = cur.Parent
-                        end
-
-                        if v.Texture == "rbxassetid://9731596776" then
-                            g = true
-                        end
-                        if v.Texture == "rbxassetid://10583327833" then
-                            v.Color = cs
-                            g = true
-                        end
-
-                        if not g then
-                            v.Color = cs
-                        end
-                    elseif v:IsA("SpotLight") and v.Parent then
-                        v.Color = spot
-                        v.Enabled = true
-                    end
-                end
             end
-        end)
-        
-        if not success then
-            warn("Color update error for " .. player.Name .. ": " .. tostring(err))
         end
 
-        task.wait(0.1)
-    end
-    colorUpdateRunning = false
-end)
-
-
-playerData.stopColorUpdate = function()
-    colorUpdateRunning = false
-end
-
-
-
-
-if isLocalPlayer then
-    local renderConn1 = game:GetService("RunService").RenderStepped:Connect(function()
-        if not CharacterRef or not CharacterRef.Parent or not player or not player.Parent then return end
-        local humanoid = CharacterRef:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        
-        local d = humanoid.MoveDirection
-        if d.Magnitude > 0 and HRP and HRP.Parent then 
-            HRP.CFrame = CFrame.new(HRP.Position, HRP.Position + d) 
-        end
-    end)
-    table.insert(playerData.connections, renderConn1)
-
-    local snap=18
-
-    local renderConn2 = RunService.RenderStepped:Connect(function(dt)
-        if not CharacterRef or not CharacterRef.Parent or not HRP or not HRP.Parent or not h or not h.Parent then return end
-    	if h.FloorMaterial==Enum.Material.Air then return end
-
-    	local md=h.MoveDirection
-    	if md.Magnitude==0 then return end
-
-    	md=Vector3.new(md.X,0,md.Z).Unit
-
-    	local v=HRP.AssemblyLinearVelocity
-    	local y=v.Y
-
-    	local sp=v.Magnitude
-    	if sp<1 then return end
-
-    	local target=md*sp
-    	HRP.AssemblyLinearVelocity=v:Lerp(Vector3.new(target.X,y,target.Z),math.clamp(dt*snap,0,1))
-    end)
-    table.insert(playerData.connections, renderConn2)
-end
-
-
-local humanoid = CharacterRef:FindFirstChildOfClass("Humanoid")
-if humanoid then
-
-    local diedConnection = humanoid.Died:Connect(function()
-        CleanupPlayer(player)
-    end)
-    table.insert(playerData.connections, diedConnection)
-end
-
-
-local ancestryConnection = CharacterRef.AncestryChanged:Connect(function(_, parent)
-    if not parent then
-        CleanupPlayer(player)
-    end
-end)
-table.insert(playerData.connections, ancestryConnection)
-
-end
-
-
-local function CheckGameMode()
-    local allowedPlayersInGame = 0
-    for _, player in ipairs(Players:GetPlayers()) do
-        if IsAllowed(player) then
-            allowedPlayersInGame = allowedPlayersInGame + 1
+        -- Prune bots that no longer exist or lost their HRP
+        for model in pairs(botCache) do
+            if not found[model] then
+                destroyBotESP(model)
+            end
         end
     end
-    
-    if allowedPlayersInGame == 1 then
-        print("🎮 SINGLE PLAYER MODE - Running solo!")
-    else
-        print("👥 MULTIPLAYER MODE - " .. allowedPlayersInGame .. " speedsters active!")
-    end
-    return allowedPlayersInGame
-end
-
-
-local allowedCount = CheckGameMode()
-for _, player in ipairs(Players:GetPlayers()) do
-    if IsAllowed(player) and player.Character then
-        SetupSpeedster(player)
-    end
-end
-
-
-Players.PlayerAdded:Connect(function(player)
-    if IsAllowed(player) then
-        CheckGameMode()
-        player.CharacterAdded:Connect(function()
-            SetupSpeedster(player)
-        end)
-    end
 end)
 
-for _, player in ipairs(Players:GetPlayers()) do
-    if IsAllowed(player) then
-        player.CharacterAdded:Connect(function()
-            SetupSpeedster(player)
-        end)
-    end
-end
-
-
-Players.PlayerRemoving:Connect(function(player)
-    CleanupPlayer(player)
-    CheckGameMode()
-end)
-
-
-print("⚡ SendAsync() SYNC SYSTEM LOADED!")
-print("📡 Commands: .1 = Speed | .2 = Phase | .3 = Stop")
-print("✅ Multiplayer sync: ACTIVE")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
-local Players = game:GetService("Players")
-
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-
-local CurrentCamera = workspace.CurrentCamera
-
-local Blur = CurrentCamera:FindFirstChild("Blur")
-if not Blur then
-	Blur = Instance.new("BlurEffect", CurrentCamera)
-end
-Blur.Size = 0
-
--- RunBlur: tiny blur that fires at max when running starts, then tweens to 0
-local RunBlur = CurrentCamera:FindFirstChild("RunBlur")
-if not RunBlur then
-	RunBlur = Instance.new("BlurEffect", CurrentCamera)
-	RunBlur.Name = "RunBlur"
-end
-RunBlur.Size = 0
-local runBlurTween = nil
-local wasMoving = false
-
-local isR15 = Character:FindFirstChild("UpperTorso") ~= nil
-local R15 = {"Head","LeftUpperArm","LeftLowerArm","LeftHand","RightUpperArm","RightLowerArm","RightHand","LeftUpperLeg","LeftLowerLeg","LeftFoot","RightUpperLeg","RightLowerLeg","RightFoot"}
-local R6 = {"Head","Left Arm","Right Arm","Left Leg","Right Leg"}
-
-local bodyParts = {}
-for _, n in ipairs(isR15 and R15 or R6) do
-	local p = Character:FindFirstChild(n)
-	if p and p:IsA("BasePart") then
-		bodyParts[#bodyParts + 1] = p
-	end
-end
-
-for _, part in ipairs(bodyParts) do
-	do
-		local e = Instance.new("ParticleEmitter")
-		e.Brightness = 7
-		e.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-		e.LightEmission = 0.5
-		e.LightInfluence = 1
-		e.Orientation = Enum.ParticleOrientation.VelocityParallel
-		e.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,10,0)})
-		e.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,0,0)})
-		e.Texture = "rbxassetid://4770542473"
-		e.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.91299998760223389,0),NumberSequenceKeypoint.new(1,1,0)})
-		e.ZOffset = 0
-		e.EmissionDirection = Enum.NormalId.Top
-		e.Enabled = false
-		e.Lifetime = NumberRange.new(0.25,0.5)
-		e.Rate = 250
-		e.RotSpeed = NumberRange.new(-50,50)
-		e.Rotation = NumberRange.new(-180,180)
-		e.Speed = NumberRange.new(50,200)
-		e.SpreadAngle = Vector2.new(0,500)
-		e.TimeScale = 1
-		e.Acceleration = Vector3.new(0,0,500)
-		e.Drag = 5
-		e.VelocityInheritance = 0
-		e.WindAffectsDrag = false
-		e.Shape = Enum.ParticleEmitterShape.Box
-		e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-		e.ShapePartial = 1
-		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-		e.FlipbookFramerate = NumberRange.new(1,1)
-		e.FlipbookLayout = Enum.ParticleFlipbookLayout.None
-		e.FlipbookMode = Enum.ParticleFlipbookMode.Loop
-		e.FlipbookStartRandom = false
-		e.LockedToPart = true
-		e.Name = "Wind1"
-		e:Emit(15)
-		e.Parent = part
-	end
-	do
-		local e = Instance.new("ParticleEmitter")
-		e.Brightness = 7
-		e.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-		e.LightEmission = 0.5
-		e.LightInfluence = 1
-		e.Orientation = Enum.ParticleOrientation.VelocityParallel
-		e.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,3,1.8124997615814209)})
-		e.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,3,0)})
-		e.Texture = "rbxassetid://4770542473"
-		e.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.85000002384185791,0),NumberSequenceKeypoint.new(1,1,0)})
-		e.ZOffset = 0
-		e.EmissionDirection = Enum.NormalId.Top
-		e.Enabled = false
-		e.Lifetime = NumberRange.new(0.25,0.5)
-		e.Rate = 250
-		e.RotSpeed = NumberRange.new(0,0)
-		e.Rotation = NumberRange.new(-90,-90)
-		e.Speed = NumberRange.new(50,200)
-		e.SpreadAngle = Vector2.new(0,500)
-		e.TimeScale = 1
-		e.Acceleration = Vector3.new(0,0,500)
-		e.Drag = 5
-		e.VelocityInheritance = 0
-		e.WindAffectsDrag = false
-		e.Shape = Enum.ParticleEmitterShape.Box
-		e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-		e.ShapePartial = 1
-		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-		e.FlipbookFramerate = NumberRange.new(1,1)
-		e.FlipbookLayout = Enum.ParticleFlipbookLayout.None
-		e.FlipbookMode = Enum.ParticleFlipbookMode.Loop
-		e.FlipbookStartRandom = false
-		e.LockedToPart = true
-		e.Name = "Wind2"
-		e:Emit(15)
-		e.Parent = part
-	end
-	do
-		local e = Instance.new("ParticleEmitter")
-		e.Brightness = 7
-		e.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-		e.LightEmission = 0.5
-		e.LightInfluence = 1
-		e.Orientation = Enum.ParticleOrientation.VelocityParallel
-		e.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,10,0)})
-		e.Squash = NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,0,0)})
-		e.Texture = "rbxassetid://4770542473"
-		e.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.81300002336502075,0),NumberSequenceKeypoint.new(1,1,0)})
-		e.ZOffset = 0
-		e.EmissionDirection = Enum.NormalId.Back
-		e.Enabled = false
-		e.Lifetime = NumberRange.new(0.5,1)
-		e.Rate = 150
-		e.RotSpeed = NumberRange.new(-50,50)
-		e.Rotation = NumberRange.new(-180,180)
-		e.Speed = NumberRange.new(30,100)
-		e.SpreadAngle = Vector2.new(50,50)
-		e.TimeScale = 1
-		e.Acceleration = Vector3.new(0,0,100)
-		e.Drag = 0
-		e.VelocityInheritance = 0
-		e.WindAffectsDrag = false
-		e.Shape = Enum.ParticleEmitterShape.Box
-		e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-		e.ShapePartial = 1
-		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-		e.FlipbookFramerate = NumberRange.new(1,1)
-		e.FlipbookLayout = Enum.ParticleFlipbookLayout.None
-		e.FlipbookMode = Enum.ParticleFlipbookMode.Loop
-		e.FlipbookStartRandom = false
-		e.LockedToPart = true
-		e.Name = "Wind3"
-		e:Emit(15)
-		e.Parent = part
-	end
-end
-
-local wndPart = Instance.new("Part")
-wndPart.Transparency = 1
-wndPart.Anchored = true
-wndPart.CanCollide = false
-wndPart.Massless = true
-wndPart.Size = Vector3.new(1,1,1)
-wndPart.Name = "wnd"
-wndPart.Parent = workspace
-
-local wndAttachment = Instance.new("Attachment", wndPart)
-wndAttachment.Name = "Attachment"
-
-local function makeWind(name, emissionDir, lifetimeMin, lifetimeMax, rate, rotSpeedMin, rotSpeedMax, rotMin, rotMax, speedMin, speedMax, spreadAngle, acceleration, drag, sizeSeq, squashSeq, transparencySeq)
-	local e = Instance.new("ParticleEmitter")
-	e.Brightness = 7
-	e.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.new(1,1,1)),ColorSequenceKeypoint.new(1,Color3.new(1,1,1))})
-	e.LightEmission = 0.5
-	e.LightInfluence = 1
-	e.Orientation = Enum.ParticleOrientation.VelocityParallel
-	e.Size = sizeSeq
-	e.Squash = squashSeq
-	e.Texture = "rbxassetid://4770542473"
-	e.Transparency = transparencySeq
-	e.ZOffset = 0
-	e.EmissionDirection = emissionDir
-	e.Enabled = false
-	e.Lifetime = NumberRange.new(lifetimeMin, lifetimeMax)
-	e.Rate = rate
-	e.RotSpeed = NumberRange.new(rotSpeedMin, rotSpeedMax)
-	e.Rotation = NumberRange.new(rotMin, rotMax)
-	e.Speed = NumberRange.new(speedMin, speedMax)
-	e.SpreadAngle = spreadAngle
-	e.TimeScale = 1
-	e.Acceleration = acceleration
-	e.Drag = drag
-	e.VelocityInheritance = 0
-	e.WindAffectsDrag = false
-	e.Shape = Enum.ParticleEmitterShape.Box
-	e.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-	e.ShapePartial = 1
-	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-	e.FlipbookFramerate = NumberRange.new(1,1)
-	e.FlipbookLayout = Enum.ParticleFlipbookLayout.None
-	e.FlipbookMode = Enum.ParticleFlipbookMode.Loop
-	e.FlipbookStartRandom = false
-	e.LockedToPart = true
-	e.Name = name
-	e.Parent = wndAttachment
-end
-
-makeWind(
-	"Wind1", Enum.NormalId.Top, 0.25, 0.5, 250, -50, 50, -180, 180, 50, 200,
-	Vector2.new(0,500), Vector3.new(0,0,500), 5,
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,10,0)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,0,0)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.91299998760223389,0),NumberSequenceKeypoint.new(1,1,0)})
-)
-
-makeWind(
-	"Wind2", Enum.NormalId.Top, 0.25, 0.5, 250, 0, 0, -90, -90, 50, 200,
-	Vector2.new(0,500), Vector3.new(0,0,500), 5,
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,3,1.8124997615814209)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,3,0)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.85000002384185791,0),NumberSequenceKeypoint.new(1,1,0)})
-)
-
-makeWind(
-	"Wind3", Enum.NormalId.Back, 0.5, 1, 150, -50, 50, -180, 180, 30, 100,
-	Vector2.new(50,50), Vector3.new(0,0,100), 0,
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,10,0)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,0,0),NumberSequenceKeypoint.new(1,0,0)}),
-	NumberSequence.new({NumberSequenceKeypoint.new(0,1,0),NumberSequenceKeypoint.new(0.20000000298023224,0.81300002336502075,0),NumberSequenceKeypoint.new(1,1,0)})
-)
-
-local Part_upvr = Instance.new("Part", Character)
-Part_upvr.Transparency = 1
-Part_upvr.Anchored = true
-Part_upvr.CanCollide = false
-Part_upvr.Massless = true
-Part_upvr.Size = Vector3.new()
-
-local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
-local Humanoid = Character:WaitForChild("Humanoid")
-
-local tick = 0
-
+-- ═══════════════════════════════════════════════════════════
+-- MAIN RENDER LOOP
+-- ═══════════════════════════════════════════════════════════
 RunService.RenderStepped:Connect(function()
-	local Magnitude = HumanoidRootPart.Velocity.Magnitude
+    local mc = lp.Character
+    local mh = mc and mc:FindFirstChild("HumanoidRootPart")
+    local mu = mc and mc:FindFirstChildOfClass("Humanoid")
 
-	if 0 < Magnitude then
-		Part_upvr.CFrame = CFrame.new(CurrentCamera.CFrame.Position, CurrentCamera.CFrame.Position + HumanoidRootPart.Velocity * 5)
-	else
-		Part_upvr.Position = CurrentCamera.CFrame.Position
-	end
+    -- ── ESP ───────────────────────────────────────────────────
+    local anyEsp = espEnabled or espAllEnabled
+    if not anyEsp then
+        for _, d in pairs(espCache) do hideAll(d) end
+        for _, d in pairs(botCache) do hideAll(d) end
+        return
+    end
 
-	tick += 1
+    local JAIL_TEAMS  = { prisoner = true, criminal = true, prison = true }
+    local myTeam      = lp.Team
+    local myTeamName  = myTeam and myTeam.Name:lower() or nil
+    local iAmJailSide = myTeamName and JAIL_TEAMS[myTeamName] or false
 
-	Blur.Size = math.clamp(Magnitude / 70, 0, 9)
+    local function shouldESP(p)
+        local theirTeam     = p.Team
+        local theirTeamName = theirTeam and theirTeam.Name:lower() or nil
+        if iAmJailSide and theirTeamName and JAIL_TEAMS[theirTeamName] then return false end
+        if myTeam and theirTeam and myTeam == theirTeam then return false end
+        return true
+    end
 
-	-- RunBlur: triggers at max when player starts moving, fades out over 0.3s
-	local isMovingNow = Magnitude > 8
-	if isMovingNow and not wasMoving then
-		if runBlurTween then runBlurTween:Cancel() end
-		RunBlur.Size = 20
-		runBlurTween = TweenService:Create(
-			RunBlur,
-			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{Size = 0}
-		)
-		runBlurTween:Play()
-	elseif not isMovingNow then
-		if runBlurTween then runBlurTween:Cancel() end
-		RunBlur.Size = 0
-	end
-	wasMoving = isMovingNow
+    -- ── Player cache ──────────────────────────────────────────
+    local wanted = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp and p.Character then
+            -- espEnabled uses team filter; espAllEnabled bypasses it
+            local include = espAllEnabled or (espEnabled and shouldESP(p))
+            if include then
+                wanted[p] = true
+                if not espCache[p] then buildESP(p) end
+            end
+        end
+    end
+    for p in pairs(espCache) do
+        if not wanted[p] then destroyESP(p) end
+    end
 
-	local wndPos = CurrentCamera.CFrame.Position + CurrentCamera.CFrame.LookVector * 15
-	wndPart.CFrame = CFrame.new(wndPos, wndPos + CurrentCamera.CFrame.LookVector)
+    -- Tracer start: my HRP screen pos
+    local vp = cam.ViewportSize
+    local tracerStart
+    if mh then
+        local sp, on, d = w2s(mh.Position)
+        tracerStart = (on and d > 0) and sp or Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+    else
+        tracerStart = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+    end
 
-	if 80 <= Magnitude and tick % math.max(1, math.floor(50 / Magnitude)) == 0 then
-		local Part = Instance.new("Part")
-		Part.CastShadow = false
-		Part.Color = Color3.new(1,1,1)
-		Part.Material = Enum.Material.ForceField
-		Part.Transparency = 1
-		Part.Size = Vector3.new(0.03, 0.03, Magnitude / 60)
-		Part.CanCollide = false
-		Part.Massless = true
-		Part.Parent = workspace
+    -- ── Shared render function ────────────────────────────────
+    local function renderEntry(d, char, hrp, hum, nameStr, infoStr)
+        local sp, onScreen, depth = w2s(hrp.Position)
+        if not onScreen or depth <= 0 then hideAll(d); return end
 
-		local SpecialMesh = Instance.new("SpecialMesh")
-		SpecialMesh.MeshType = Enum.MeshType.Sphere
-		SpecialMesh.Parent = Part
+        d.hl.Adornee = char; d.hl.Enabled = true
 
-		local cframe = CFrame.new(math.random(-300,300)/100, math.random(-200,200)/100, -math.floor(Magnitude/50)*2)
+        d.bb.Adornee   = hrp; d.bb.Enabled = true
+        d.nameLbl.Text = nameStr
+        d.infoLbl.Text = infoStr
 
-		local Weld = Instance.new("Weld", Part)
-		Weld.Part0 = Part_upvr
-		Weld.Part1 = Part
-		Weld.C0 = cframe
+        local bx0, by0, bx1, by1 = charBounds(char)
+        if bx0 then
+            bx0 -= 3; by0 -= 3; bx1 += 3; by1 += 3
+            drawLine(d.boxLines[1], Vector2.new(bx0, by0), Vector2.new(bx1, by0), 2)
+            drawLine(d.boxLines[2], Vector2.new(bx0, by1), Vector2.new(bx1, by1), 2)
+            drawLine(d.boxLines[3], Vector2.new(bx0, by0), Vector2.new(bx0, by1), 2)
+            drawLine(d.boxLines[4], Vector2.new(bx1, by0), Vector2.new(bx1, by1), 2)
+        else
+            for _, l in ipairs(d.boxLines) do l.Visible = false end
+        end
 
-		for _, v in pairs(wndAttachment:GetDescendants()) do
-			if v:IsA("ParticleEmitter") then
-				v.Enabled = true
-				if v.Name ~= "Wind3" then
-					v.Speed = NumberRange.new(math.clamp(5*Magnitude/40,-100,50), math.clamp(20*Magnitude/40,-100,200))
-					v.Rate = math.clamp(2*Magnitude/4, 0, 2000)
-				elseif v.Name == "Wind3" then
-					local lock = false
-					if Humanoid.FloorMaterial == Enum.Material.Air then
-						if 250 >= Magnitude then
-							lock = false
-						else
-							lock = true
-						end
-					end
-					v.LockedToPart = lock
-				end
-			end
-		end
+        drawLine(d.tracer, tracerStart, sp, 2)
 
-		Debris:AddItem(Part, 0.6)
+        for i, bone in ipairs(BONES) do
+            local pA = char:FindFirstChild(bone[1])
+            local pB = char:FindFirstChild(bone[2])
+            local ln = d.skelLines[i]
+            if pA and pB then
+                local sA, onA, dA = w2s(pA.Position)
+                local sB, onB, dB = w2s(pB.Position)
+                if (onA or onB) and dA > 0 and dB > 0 then
+                    drawLine(ln, sA, sB, 1.5)
+                else
+                    ln.Visible = false
+                end
+            else
+                ln.Visible = false
+            end
+        end
+    end
 
-		TweenService:Create(Part, TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 0), {Transparency = 0.8}):Play()
-		TweenService:Create(Weld, TweenInfo.new(0.3, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 0), {C0 = CFrame.new(cframe.Position.X, cframe.Position.Y, math.floor(Magnitude/100)*4)}):Play()
+    -- ── Render players ────────────────────────────────────────
+    for p, d in pairs(espCache) do
+        local char = p.Character
+        if not char then hideAll(d); continue end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp then hideAll(d); continue end
+        local hp    = hum and math.floor(hum.Health)    or 0
+        local maxHp = hum and math.floor(hum.MaxHealth) or 100
+        local dist  = mh and math.floor((hrp.Position - mh.Position).Magnitude) or 0
 
-		wait(0.225)
+        -- Line 1: name + username
+        local nameStr = string.format("%s  [%s]", p.DisplayName, p.Name)
 
-		TweenService:Create(Part, TweenInfo.new(0.095, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 0), {Transparency = 1}):Play()
-	else
-		for _, v in pairs(wndAttachment:GetChildren()) do
-			if v:IsA("ParticleEmitter") then
-				v.Enabled = false
-			end
-		end
-	end
+        -- Line 2: HP | dist | team
+        local teamName = p.Team and p.Team.Name or "None"
+        local infoStr  = string.format("HP %d/%d  |  %d studs  |  %s", hp, maxHp, dist, teamName)
+
+        -- Line 3: leaderstats (e.g. Money: 500  Kills: 3)
+        local ls = p:FindFirstChild("leaderstats")
+        if ls then
+            local parts = {}
+            for _, stat in ipairs(ls:GetChildren()) do
+                table.insert(parts, stat.Name .. ": " .. tostring(stat.Value))
+            end
+            if #parts > 0 then
+                infoStr = infoStr .. "\n" .. table.concat(parts, "  |  ")
+            end
+        end
+
+        renderEntry(d, char, hrp, hum, nameStr, infoStr)
+    end
+
+    -- ── Render bots (orange) ──────────────────────────────────
+    for model, d in pairs(botCache) do
+        if not model or not model.Parent then destroyBotESP(model); continue end
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        if not hrp then hideAll(d); continue end
+        local hp    = hum and math.floor(hum.Health)    or 0
+        local maxHp = hum and math.floor(hum.MaxHealth) or 100
+        local dist  = mh and math.floor((hrp.Position - mh.Position).Magnitude) or 0
+        renderEntry(d, model, hrp, hum,
+            string.format("[BOT] %s", model.Name),
+            string.format("HP %d/%d  |  %d studs", hp, maxHp, dist))
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════
+-- RESPAWN HANDLER — re-apply fly after character reloads
+-- ═══════════════════════════════════════════════════════════
+lp.CharacterAdded:Connect(function()
+    flyCleanup = nil   -- old BodyVelocity is gone with the old character
+    if flyEnabled then
+        task.wait(0.3)   -- wait for character to fully initialise
+        doEnableFly()
+    end
+end)
+
+Notify("System initialized. Enjoy the Script!")
+
+-- ═══════════════════════════════════════════════════════════
+-- SPEED — Heartbeat ensures WalkSpeed sticks even in games
+-- that reset it every frame server-side
+-- ═══════════════════════════════════════════════════════════
+RunService.Heartbeat:Connect(function()
+    if not speedEnabled then return end
+    local char = lp.Character
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum.WalkSpeed = walkSpeed end
 end)
