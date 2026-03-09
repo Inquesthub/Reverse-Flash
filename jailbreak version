@@ -2020,14 +2020,14 @@ V89()
 V87()
 
     if spd then
+        enableAll()
+        -- overwrite heartbeatConnection AFTER enableAll so 178 wins
         if heartbeatConnection then heartbeatConnection:Disconnect() end
         heartbeatConnection = RunService.RenderStepped:Connect(function()
             if h and h.Parent then
                 h.WalkSpeed = 178
             end
         end)
-
-EnableLightningGlobal()
 
 EnableAllCoolStuff()
 
@@ -2061,7 +2061,6 @@ StopEffect()
             end
         end)
 
-        enableAll()
     else
 
 DisableLightningGlobal()
@@ -2246,14 +2245,14 @@ V89()
 V87()
 
     if spd then
+        enableAll()
+        -- overwrite heartbeatConnection AFTER enableAll so 178 wins
         if heartbeatConnection then heartbeatConnection:Disconnect() end
         heartbeatConnection = RunService.RenderStepped:Connect(function()
             if h and h.Parent then
                 h.WalkSpeed = 178
             end
         end)
-
-EnableAllCoolStuff()
 
 EnableLightningGlobal()
 
@@ -2288,7 +2287,6 @@ StopEffect()
         end)
 
 
-        enableAll()
     else
 
 StopEffect() 
