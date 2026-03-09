@@ -618,7 +618,7 @@ end
 
 
 if _G.TODC then
-    RunService.Heartbeat:Connect(function()
+    RunService.RenderStepped:Connect(function()
         if _G.NightMode then
             l.ClockTime = 0
         else
@@ -1645,7 +1645,7 @@ local function enableAll()
     enabled = true
     Humanoid.WalkSpeed = defaultWalkSpeed
     InitializeTrails()
-    heartbeatConnection = RunService.Heartbeat:Connect(HeartbeatUpdate)
+    heartbeatConnection = RunService.RenderStepped:Connect(HeartbeatUpdate)
 
     animConnection = RunService.RenderStepped:Connect(UpdateAnimationsAndFOV)
     
@@ -1697,7 +1697,7 @@ end
 
 -- Enforce WalkSpeed every Heartbeat so games that reset it server-side
 -- every frame can't undo it while the script is enabled.
-RunService.Heartbeat:Connect(function()
+RunService.RenderStepped:Connect(function()
     if enabled then
         Humanoid.WalkSpeed = defaultWalkSpeed
     end
@@ -2021,7 +2021,7 @@ V87()
 
     if spd then
         if heartbeatConnection then heartbeatConnection:Disconnect() end
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
+        heartbeatConnection = RunService.RenderStepped:Connect(function()
             if h and h.Parent then
                 h.WalkSpeed = 178
             end
@@ -2160,7 +2160,7 @@ local function gnp()
     return np
 end
 
-local mainHeartbeat = RunService.Heartbeat:Connect(function(dt)
+local mainHeartbeat = RunService.RenderStepped:Connect(function(dt)
     if not CharacterRef or not CharacterRef.Parent then return end
     if nc then
         for _,v in next,CharacterRef:GetDescendants() do
@@ -2247,7 +2247,7 @@ V87()
 
     if spd then
         if heartbeatConnection then heartbeatConnection:Disconnect() end
-        heartbeatConnection = RunService.Heartbeat:Connect(function()
+        heartbeatConnection = RunService.RenderStepped:Connect(function()
             if h and h.Parent then
                 h.WalkSpeed = 178
             end
