@@ -2328,7 +2328,7 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/ChosenSkibidi/VIP-SCR
 local g=player.PlayerGui.Attention.DialogueFrameAnnouncement
 
 g.Message.Text="Enjoy the script, and thank you for using our work."
-g:GetChildren()[11].Text="This script was created by Infinite Studios."
+g:GetChildren()[11].Text="This script was created by Infactory."
 
 local UserInputService = game:GetService("UserInputService")
 
